@@ -6,7 +6,26 @@ desktop.ini
 # Node / tooling
 node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 *.log
+
+# Build output (Next.js / bundlers) — these are also ignored by web/.gitignore;
+# duplicated here as a safety net so build artifacts can never be committed by
+# accident, including from any future subproject at the repo root.
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# Env files (never commit secrets); keep an example template if one exists
+.env
+.env.*
+!.env.example
+
+# Deploy / hosting
+.vercel
 
 # Claude Code — local settings + installed third-party skills
 # (skills-lock.json is tracked, so the skill set stays reproducible without
