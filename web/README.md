@@ -66,7 +66,7 @@ cache TTLs.
 
 `lib/engine` is a behavior-faithful TypeScript port. Outputs (win %, method
 matrix, Veteran-Gate round call, driver factors, Bayesian shrinkage, tier logic,
-the 85% display cap) match the original. See `../CHANGELOG-REBUILD.md` for the
+the 85% display cap) match the original. See `../docs/CHANGELOG-REBUILD.md` for the
 view→route map and the fidelity confirmation, including one deliberately
 preserved quirk (the control-time nudge no-ops in the source; kept verbatim).
 

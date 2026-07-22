@@ -21,9 +21,15 @@ Then visit http://localhost:8765/.
 
 ## Structure
 
-- `app/index.html` — the whole application (HTML + CSS + JS in one file).
-- `edge-engine-PROJECT-HANDOFF.md` — the prediction engine's design spec and
-  product philosophy (calibration over confidence, "pick ≠ bet").
+- `app/index.html` — the whole standalone application (HTML + CSS + JS in one file).
+- `web/` — a Next.js rebuild of the same app (API routes, engine logic, components).
+- `docs/` — project documentation:
+  - `edge-engine-PROJECT-HANDOFF.md` — the prediction engine's design spec and
+    product philosophy (calibration over confidence, "pick ≠ bet").
+  - `EDGE-ENGINE-APP.md` — app overview / handoff notes.
+  - `EDGE-ENGINE-APP-SOURCE.md` — annotated source reference.
+  - `REBUILD-PLAN.md` — plan for the `web/` rebuild.
+  - `CHANGELOG-REBUILD.md` — what changed during the rebuild.
 - `skills-lock.json` — records the design/review skills used during development.
 
 ## Data
