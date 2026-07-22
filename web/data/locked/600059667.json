@@ -1,0 +1,294 @@
+{
+  "eventId": "600059667",
+  "eventName": "UFC Fight Night: Ankalaev vs. Guskov",
+  "date": "2026-07-25T13:00Z",
+  "lockedAt": "2026-07-22T12:08:11.387Z",
+  "legs": [
+    {
+      "compId": "401892276",
+      "order": 1,
+      "aName": "Magomed Ankalaev",
+      "bName": "Bogdan Guskov",
+      "weightClass": "Light Heavyweight",
+      "rounds": 5,
+      "pick": {
+        "winnerName": "Bogdan Guskov",
+        "winProb": 0.6045118343581071,
+        "winProbDisplay": 0.6045118343581071,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-early",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401874315",
+      "order": 2,
+      "aName": "Ramazan Temirov",
+      "bName": "Steve Erceg",
+      "weightClass": "Flyweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Ramazan Temirov",
+        "winProb": 0.6889290501359459,
+        "winProbDisplay": 0.6889290501359459,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-early",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401874316",
+      "order": 3,
+      "aName": "Wellington Turman",
+      "bName": "Islam Dulatov",
+      "weightClass": "Welterweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Islam Dulatov",
+        "winProb": 0.85,
+        "winProbDisplay": 0.85,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-early",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401886732",
+      "order": 4,
+      "aName": "Magomed Zaynukov",
+      "bName": "Damian Rzepecki",
+      "weightClass": "Lightweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Damian Rzepecki",
+        "winProb": 0.6027771257242094,
+        "winProbDisplay": 0.6027771257242094,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-late",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401874311",
+      "order": 5,
+      "aName": "Rizvan Kuniev",
+      "bName": "Tyrell Fortune",
+      "weightClass": "Heavyweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Tyrell Fortune",
+        "winProb": 0.6008191265595229,
+        "winProbDisplay": 0.6008191265595229,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-late",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401890156",
+      "order": 6,
+      "aName": "Abubakar Vagaev",
+      "bName": "Saygid Izagakhmaev",
+      "weightClass": "Welterweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Saygid Izagakhmaev",
+        "winProb": 0.6025439029655502,
+        "winProbDisplay": 0.6025439029655502,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "Decision"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-late",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401874312",
+      "order": 7,
+      "aName": "Thomas Petersen",
+      "bName": "Valter Walker",
+      "weightClass": "Heavyweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Valter Walker",
+        "winProb": 0.7792277895665038,
+        "winProbDisplay": 0.7792277895665038,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-early",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401898040",
+      "order": 8,
+      "aName": "Dustin Jacoby",
+      "bName": "Muhammad Said",
+      "weightClass": "Light Heavyweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Muhammad Said",
+        "winProb": 0.7853635889225432,
+        "winProbDisplay": 0.7853635889225432,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-early",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401891531",
+      "order": 9,
+      "aName": "Santiago Ponzinibbio",
+      "bName": "Sam Patterson",
+      "weightClass": "Welterweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Sam Patterson",
+        "winProb": 0.7889201083152059,
+        "winProbDisplay": 0.7889201083152059,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-early",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401874317",
+      "order": 10,
+      "aName": "Ismael Bonfim",
+      "bName": "Axel Sola",
+      "weightClass": "Lightweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Axel Sola",
+        "winProb": 0.732908151370264,
+        "winProbDisplay": 0.732908151370264,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-late",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401874314",
+      "order": 11,
+      "aName": "Brendson Ribeiro",
+      "bName": "Magomed Tuchalov",
+      "weightClass": "Light Heavyweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Magomed Tuchalov",
+        "winProb": 0.85,
+        "winProbDisplay": 0.85,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-early",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401886737",
+      "order": 12,
+      "aName": "Mike Davis",
+      "bName": "Nurullo Aliev",
+      "weightClass": "Lightweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Nurullo Aliev",
+        "winProb": 0.674784312386109,
+        "winProbDisplay": 0.674784312386109,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "Decision"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-late",
+        "modalRound": null
+      }
+    },
+    {
+      "compId": "401898030",
+      "order": 13,
+      "aName": "Cody Gibson",
+      "bName": "Abdul Hussein",
+      "weightClass": "Bantamweight",
+      "rounds": 3,
+      "pick": {
+        "winnerName": "Abdul Hussein",
+        "winProb": 0.85,
+        "winProbDisplay": 0.85,
+        "tier": "SOLID"
+      },
+      "method": {
+        "top": "KO/TKO"
+      },
+      "round": {
+        "mode": "standard",
+        "call": "Finish-late",
+        "modalRound": null
+      }
+    }
+  ]
+}

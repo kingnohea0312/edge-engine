@@ -1,0 +1,19 @@
+{
+  "eventId": "ufc-okc-2026-07-18",
+  "eventName": "UFC OKC — Du Plessis vs. Usman",
+  "date": "2026-07-18",
+  "seed": true,
+  "rows": [
+    { "fight": "Anderson/Elliott", "pickName": "Anderson", "pickPct": 0.53, "result": "Elliott, UD R3", "winnerHit": false, "methodHit": false, "roundHit": false, "roundSoft": false },
+    { "fight": "Barbosa/Melisano", "pickName": "Barbosa", "pickPct": 0.83, "result": "Barbosa, Sub R1", "winnerHit": true, "methodHit": true, "roundHit": false, "roundSoft": false },
+    { "fight": "Hines/Harris", "pickName": "Harris", "pickPct": 0.53, "result": "Harris, TKO R1", "winnerHit": true, "methodHit": true, "roundHit": false, "roundSoft": false },
+    { "fight": "Coria/Nicoll", "pickName": "Coria", "pickPct": 0.85, "result": "Coria, UD R3", "winnerHit": true, "methodHit": true, "roundHit": true, "roundSoft": false },
+    { "fight": "Franco/Rodrigues", "pickName": "Rodrigues", "pickPct": 0.53, "result": "Franco, TKO R2", "winnerHit": false, "methodHit": true, "roundHit": true, "roundSoft": false },
+    { "fight": "Lebosnoyani/Ko", "pickName": "Ko", "pickPct": 0.60, "result": "Lebosnoyani, UD R3", "winnerHit": false, "methodHit": true, "roundHit": true, "roundSoft": false },
+    { "fight": "Delgado/Bashi", "pickName": "Delgado", "pickPct": 0.54, "result": "Delgado, UD R3", "winnerHit": true, "methodHit": true, "roundHit": true, "roundSoft": false },
+    { "fight": "Du Plessis/Usman", "pickName": "Du Plessis", "pickPct": 0.68, "result": "Du Plessis, UD R5", "winnerHit": true, "methodHit": true, "roundHit": true, "roundSoft": false },
+    { "fight": "Cannonier/Duncan", "pickName": "Duncan", "pickPct": 0.70, "result": "Duncan, UD R3", "winnerHit": true, "methodHit": true, "roundHit": true, "roundSoft": false },
+    { "fight": "Hooper/Ramirez", "pickName": "Hooper", "pickPct": 0.78, "result": "Hooper, Sub R1", "winnerHit": true, "methodHit": true, "roundHit": true, "roundSoft": false }
+  ],
+  "tallies": { "winners": 7, "methods": 9, "rounds": 7, "n": 10 }
+}

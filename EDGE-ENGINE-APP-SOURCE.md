@@ -1,0 +1,1894 @@
+﻿# Edge Engine — Full App Source
+
+The **complete single-file application**. To use or transfer it: copy the code block below into a file named `app/index.html`, then open it in any modern browser — or run `npx live-server app --port=8765` for live reload.
+
+No build step and no dependencies. It needs an internet connection: it fetches live UFC schedules, fighter stats, results, and betting lines from public ESPN feeds. Rankings are an embedded snapshot of ufc.com. See `EDGE-ENGINE-APP.md` for the architecture, data endpoints, and feature breakdown.
+
+Generated 2026-07-21 · 1825 lines
+
+````html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>EDGE ENGINE â€” UFC Forecasting</title>
+<style>
+:root{
+  --bg:#0b0b0f; --bg2:#101017; --card:#15151d; --card2:#1b1b24; --line:#26262f;
+  --txt:#f2f2f5; --txt2:#9a9aa5; --txt3:#63636e;
+  --red:#e01a1a; --red2:#ff3b3b; --gold:#d6b25e; --green:#2fbf71; --blue:#3d7bff;
+  --radius:14px;
+  /* app-shell width: full-bleed on phones, a centered phone-app frame on larger screens */
+  --shell:100%;
+}
+@media(min-width:700px){ :root{ --shell:480px; } }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg);color-scheme:dark}
+/* ---------- keyboard accessibility ---------- */
+a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-visible, .tap:focus-visible, [role="button"]:focus-visible{
+  outline:2px solid var(--red2); outline-offset:2px; border-radius:9px;
+}
+.tap, nav button, button, input, [role="button"]{ touch-action:manipulation; }
+body{
+  font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:
+    radial-gradient(ellipse 65% 55% at 15% 42%, rgba(168,10,24,.09), transparent),
+    radial-gradient(ellipse 52% 48% at 85% 22%, rgba(122,8,26,.08), transparent),
+    radial-gradient(ellipse 44% 52% at 56% 96%, rgba(98,5,18,.07), transparent),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--txt); min-height:100vh;
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
+  overscroll-behavior-y:contain;
+}
+/* ---------- glass system ----------
+   Backdrop-blur lives only on surfaces content scrolls behind (.hdr, nav,
+   .sheet-veil, each with its own filter). These chips sit on the opaque page,
+   so the raised look comes from inset highlights â€” no per-chip blur to
+   composite on scroll. */
+.glass{
+  border:none;background:rgba(255,255,255,.05);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.3), 0 3px 12px rgba(0,0,0,.24);
+  transition:transform .14s cubic-bezier(.16,1,.3,1), background .2s;
+}
+.glass:active{transform:scale(.94)}
+/* ---------- icons ---------- */
+.ico{width:20px;height:20px;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.ico svg{width:100%;height:100%;display:block}
+.ico-sm{width:15px;height:15px}
+/* ---------- entry motion (glass spec) ---------- */
+@keyframes fadeRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes dropIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@keyframes heroReveal{from{opacity:0;transform:scale(1.012)}to{opacity:1;transform:none}}
+.a-hero{animation:heroReveal 1.1s cubic-bezier(.16,1,.3,1) both}
+.a-rise{animation:fadeRise .7s cubic-bezier(.16,1,.3,1) both;animation-delay:var(--d,0s)}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001s!important;animation-delay:0s!important;transition-duration:.001s!important}
+}
+.hdr{
+  position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background:rgba(11,11,15,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);min-height:54px;
+  width:100%;max-width:var(--shell);margin-inline:auto;
+}
+/* centered device frame on large screens; content rides above it */
+#frame{display:none}
+@media(min-width:700px){
+  #frame{display:block;position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);
+    width:var(--shell);border-inline:1px solid var(--line);
+    box-shadow:0 0 120px 26px rgba(0,0,0,.6);pointer-events:none;z-index:0}
+  main{position:relative;z-index:2}
+}
+.hdr .logo{font-weight:900;font-size:17px;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+.hdr .logo b{color:var(--red2)}
+.hdr .sub{font-size:10px;color:var(--txt3);letter-spacing:.22em;text-transform:uppercase;margin-top:1px}
+.backbtn{
+  display:none;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;
+  border-radius:50%;color:var(--txt);font-size:18px;cursor:pointer;
+}
+.backbtn.show{display:flex}
+.refreshbtn{margin-left:auto;width:38px;height:38px;flex:0 0 38px;border-radius:50%;
+  color:var(--txt2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.refreshbtn.spin .ico{animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+main{max-width:var(--shell);margin:0 auto;padding:14px 14px 30px}
+h2.section{
+  font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--txt2);
+  margin:22px 4px 10px;display:flex;align-items:center;gap:8px;
+}
+h2.section::after{content:"";flex:1;height:1px;background:var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.tap{cursor:pointer;transition:transform .08s ease, border-color .15s}
+.tap:active{transform:scale(.985)}
+/* ---------- hero / next event ---------- */
+.hero{
+  position:relative;border:1px solid #33222a;border-radius:var(--radius);overflow:hidden;
+  background:linear-gradient(145deg,#1c1016 0%,#14141c 55%,#101017 100%);
+  padding:18px 16px 16px;margin-top:6px;
+}
+.hero .tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.22em;color:#fff;
+  background:var(--red);padding:4px 9px;border-radius:5px;text-transform:uppercase}
+.hero h1{font-size:24px;font-weight:900;line-height:1.12;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.01em}
+.hero .meta{color:var(--txt2);font-size:13px;line-height:1.5}
+.hero .meta b{color:var(--txt)}
+.count{display:flex;gap:8px;margin-top:14px}
+.count .unit{background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:10px;padding:8px 0;text-align:center;flex:1}
+.count .n{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+.count .l{font-size:9px;letter-spacing:.18em;color:var(--txt3);text-transform:uppercase;margin-top:2px}
+/* ---------- event list ---------- */
+.evrow{display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--line)}
+.evrow:last-child{border-bottom:none}
+.evrow .datebox{flex:0 0 52px;text-align:center;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:7px 0}
+.evrow .datebox .m{font-size:10px;font-weight:800;letter-spacing:.12em;color:var(--red2);text-transform:uppercase}
+.evrow .datebox .d{font-size:19px;font-weight:900;line-height:1.1}
+.evrow .info{flex:1;min-width:0}
+.evrow .t{font-weight:800;font-size:14.5px;line-height:1.25}
+.evrow .s{color:var(--txt2);font-size:12px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.evrow .chev{color:var(--txt3);font-size:18px}
+.pill{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.1em;padding:2.5px 7px;border-radius:5px;text-transform:uppercase}
+.pill.ppv{background:#2a1f10;color:var(--gold)}
+.pill.fn{background:#101c2c;color:#6ea8ff}
+.pill.done{background:#122016;color:var(--green)}
+/* ---------- segmented ---------- */
+.seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:3px;margin:14px 0 4px}
+.seg button{flex:1;border:none;background:transparent;color:var(--txt2);font-weight:800;font-size:12.5px;
+  letter-spacing:.06em;padding:9px 0;border-radius:8px;cursor:pointer;text-transform:uppercase}
+.seg button.on{background:var(--card2);color:var(--txt);box-shadow:0 1px 6px rgba(0,0,0,.4)}
+/* ---------- fight rows ---------- */
+.fight{position:relative;display:flex;align-items:stretch;border-bottom:1px solid var(--line);padding:0;min-height:96px;
+  content-visibility:auto;contain-intrinsic-size:auto 96px}
+.fight:last-child{border-bottom:none}
+.fside{flex:1;display:flex;flex-direction:column;justify-content:center;padding:12px 4px 12px 10px;min-width:0}
+.fside.right{align-items:flex-end;text-align:right;padding:12px 10px 12px 4px}
+.fside .nm{font-weight:800;font-size:13.5px;line-height:1.15;text-transform:uppercase}
+.fside .nm .fn{display:block;font-size:10.5px;font-weight:600;color:var(--txt2);letter-spacing:.04em}
+.fside .rec{font-size:11px;color:var(--txt3);margin-top:3px;font-variant-numeric:tabular-nums}
+.fside .flg{width:16px;height:11px;object-fit:cover;border-radius:2px;margin-top:5px}
+.fmid{flex:0 0 74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 0}
+.fmid .wc{font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--txt3);text-transform:uppercase;text-align:center;line-height:1.3}
+.fmid .vs{font-size:11px;font-weight:900;color:var(--red2);letter-spacing:.1em}
+.fmid .rds{font-size:9px;color:var(--txt3);letter-spacing:.1em}
+.fimg{flex:0 0 76px;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.fimg img{width:100%;height:88px;object-fit:contain;object-position:bottom}
+.fight .win-badge{position:absolute;top:6px;font-size:9px;font-weight:900;letter-spacing:.1em;color:var(--green);
+  background:#12201699;padding:2px 6px;border-radius:4px}
+.fight.l-win .win-badge.l{left:8px}
+.fight.r-win .win-badge.r{right:8px}
+.fight .result-line{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:9.5px;color:var(--txt3);letter-spacing:.06em;text-transform:uppercase}
+.fight.done .fside .nm{opacity:.85}
+.fight .loser{opacity:.45}
+/* ---------- event detail head ---------- */
+.evhead{padding:18px 16px;background:linear-gradient(160deg,#191019,#12121a 70%);border:1px solid var(--line);border-radius:var(--radius)}
+.evhead h1{font-size:21px;font-weight:900;text-transform:uppercase;line-height:1.15}
+.evhead .meta{margin-top:9px;color:var(--txt2);font-size:13px;line-height:1.65}
+.evhead .meta b{color:var(--txt)}
+.evhead .meta .ic{display:inline-block;width:18px;color:var(--red2)}
+/* ---------- search ---------- */
+.searchbox{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px;margin-top:6px}
+.searchbox input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font-size:15px}
+.searchbox:focus-within{border-color:var(--red2);box-shadow:0 0 0 2px rgba(224,26,26,.35)}
+.searchbox input::placeholder{color:var(--txt3)}
+.srow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:none}
+.srow img{width:44px;height:44px;border-radius:50%;object-fit:cover;object-position:top;background:var(--bg2);border:1px solid var(--line)}
+.srow .n{font-weight:700;font-size:14.5px}
+.srow .s{font-size:11.5px;color:var(--txt3);margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{background:var(--card);border:1px solid var(--line);color:var(--txt2);font-size:12px;font-weight:700;
+  padding:7px 12px;border-radius:20px;cursor:pointer}
+/* ---------- fighter profile ---------- */
+.fp-hero{position:relative;border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;
+  background:radial-gradient(120% 100% at 50% 0%,#241318 0%,#14141c 60%,#101017 100%);
+  display:flex;flex-direction:column;align-items:center;padding:22px 16px 0;text-align:center}
+.fp-hero img.hs{width:auto;max-width:82%;height:265px;object-fit:contain;object-position:bottom;filter:drop-shadow(0 14px 28px rgba(0,0,0,.65))}
+.fp-hero .nick{color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-top:10px}
+.fp-hero h1{font-size:25px;font-weight:900;text-transform:uppercase;line-height:1.1;margin:4px 0 2px}
+.fp-hero .rec{font-size:14px;color:var(--txt2);font-weight:700;margin-bottom:6px}
+.fp-hero .wcline{display:flex;align-items:center;gap:8px;color:var(--txt3);font-size:11.5px;letter-spacing:.1em;
+  text-transform:uppercase;margin-bottom:18px}
+.fp-hero .wcline img{width:16px;height:11px;border-radius:2px;object-fit:cover}
+.biogrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;margin-top:14px}
+.biogrid .cell{background:var(--card);padding:12px 8px;text-align:center}
+.biogrid .v{font-weight:800;font-size:14.5px}
+.biogrid .k{font-size:9px;color:var(--txt3);letter-spacing:.16em;text-transform:uppercase;margin-top:3px}
+/* stat bars */
+.statrow{padding:11px 14px;border-bottom:1px solid var(--line)}
+.statrow:last-child{border-bottom:none}
+.statrow .top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
+.statrow .top .k{color:var(--txt2);font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:10.5px}
+.statrow .top .v{font-weight:800;font-variant-numeric:tabular-nums}
+.bar{height:5px;border-radius:3px;background:var(--bg2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--red)}
+/* history */
+.hrow{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.hrow:last-child{border-bottom:none}
+.hrow .res{flex:0 0 30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:13px}
+.hrow .res.W{background:#12281a;color:var(--green)}
+.hrow .res.L{background:#2b1214;color:var(--red2)}
+.hrow .res.D{background:#26210f;color:var(--gold)}
+.hrow img.opp{width:38px;height:38px;border-radius:50%;object-fit:cover;object-position:top;background:var(--bg2);border:1px solid var(--line)}
+.hrow .inf{flex:1;min-width:0}
+.hrow .o{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hrow .m{font-size:11px;color:var(--txt2);margin-top:2px}
+.hrow .d{font-size:10.5px;color:var(--txt3);text-align:right;line-height:1.4;flex:0 0 auto}
+/* ---------- matchup ---------- */
+.mu-hero{position:relative;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
+  background:radial-gradient(130% 110% at 50% 0%,#221219 0%,#14141c 62%,#101017 100%)}
+.mu-imgs{display:flex;justify-content:space-between;align-items:flex-end;height:200px;padding:34px 2px 0}
+.mu-imgs img{width:47%;height:160px;object-fit:contain;object-position:bottom}
+.mu-vs{position:absolute;top:12px;left:0;right:0;text-align:center}
+.mu-vs .wc{font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--txt2);text-transform:uppercase}
+.mu-vs .vs{font-size:26px;font-weight:900;color:var(--red2);letter-spacing:.06em;margin-top:2px}
+.mu-names{display:flex;border-top:1px solid var(--line)}
+.mu-names .side{flex:1;padding:11px 12px;text-align:center}
+.mu-names .side:first-child{border-right:1px solid var(--line)}
+.mu-names .nm{font-weight:900;font-size:14px;text-transform:uppercase;line-height:1.15}
+.mu-names .rc{font-size:11px;color:var(--txt3);margin-top:3px}
+/* compare rows */
+.cmp{padding:10px 14px;border-bottom:1px solid var(--line)}
+.cmp:last-child{border-bottom:none}
+.cmp .lbl{text-align:center;font-size:9.5px;font-weight:800;color:var(--txt3);letter-spacing:.16em;text-transform:uppercase;margin-bottom:5px}
+.cmp .vals{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums}
+.cmp .vals .adv{color:var(--red2)}
+.cmp .dbar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:var(--bg2);margin-top:6px}
+.cmp .dbar .a{background:var(--red)}
+.cmp .dbar .b{background:#4a4a58}
+/* prediction */
+.pred{border:1px solid #33222a;border-radius:var(--radius);overflow:hidden;background:linear-gradient(160deg,#1a1218,#12121a 65%)}
+.pred .ph{padding:14px 16px 10px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line)}
+.pred .ph .dot{width:8px;height:8px;border-radius:50%;background:var(--red2);box-shadow:0 0 10px var(--red2)}
+.pred .ph b{font-size:12px;letter-spacing:.2em;text-transform:uppercase}
+.pred .ph span{margin-left:auto;font-size:9.5px;color:var(--txt3);letter-spacing:.1em;text-transform:uppercase}
+.pick{padding:16px;text-align:center}
+.pick .who{font-size:19px;font-weight:900;text-transform:uppercase}
+.pick .tier{display:inline-block;margin-top:6px;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  padding:3px 10px;border-radius:5px;background:#2a1214;color:var(--red2)}
+.pick .tier.lean{background:#26210f;color:var(--gold)}
+.pick .tier.strong{background:#12281a;color:var(--green)}
+.probbar{display:flex;height:34px;border-radius:9px;overflow:hidden;margin:14px 16px 4px;border:1px solid var(--line)}
+.probbar .pa,.probbar .pb{display:flex;align-items:center;font-weight:900;font-size:13px;padding:0 10px;font-variant-numeric:tabular-nums}
+.probbar .pa{background:linear-gradient(90deg,#7e1010,#c11616);justify-content:flex-start}
+.probbar .pb{background:#23232e;justify-content:flex-end;flex:1;color:var(--txt2)}
+.probnames{display:flex;justify-content:space-between;padding:0 18px 8px;font-size:10.5px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em}
+.mtx{width:calc(100% - 32px);margin:6px 16px 14px;border-collapse:collapse;font-size:12.5px}
+.mtx th,.mtx td{padding:7px 8px;text-align:center;border-bottom:1px solid var(--line)}
+.mtx th{font-size:9.5px;letter-spacing:.14em;color:var(--txt3);text-transform:uppercase;font-weight:800}
+.mtx td:first-child{text-align:left;color:var(--txt2);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.mtx td.hot{color:var(--red2);font-weight:900}
+.mtx tr:last-child td{border-bottom:none;font-weight:900}
+.drivers{padding:2px 16px 14px}
+.drivers .dr{display:flex;gap:9px;font-size:12.5px;color:var(--txt2);line-height:1.5;padding:5px 0}
+.drivers .dr b{color:var(--txt)}
+.drivers .dr .s{flex:0 0 16px;text-align:center;font-weight:900}
+.drivers .dr .s.plus{color:var(--green)}
+.drivers .dr .s.minus{color:var(--red2)}
+/* ---------- round projection ---------- */
+.roundcall{margin:2px 16px 14px;padding:13px 14px;border-radius:12px;background:var(--bg2);border:1px solid var(--line)}
+.rc-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.rc-head .lbl{font-size:9.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--txt3)}
+.rc-badge{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:900;letter-spacing:.12em;
+  text-transform:uppercase;padding:4px 9px;border-radius:6px;background:#2a1f10;color:var(--gold)}
+.rc-badge .ico{width:12px;height:12px}
+.rc-badge.std{background:var(--card2);color:var(--txt3)}
+.rc-round{font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:-.01em}
+.rc-round .p{color:var(--red2);margin-left:7px;font-size:15px;font-variant-numeric:tabular-nums}
+.rc-round.soft{font-size:16px}
+.rc-bar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin-top:11px;border:1px solid var(--line);background:var(--bg)}
+.rc-bar .seg{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:#fff;
+  min-width:0;overflow:hidden;white-space:nowrap}
+.rc-bar .seg.dim{background:#23232e;color:var(--txt2)}
+.rc-bar .seg.peak{background:linear-gradient(90deg,#a30f0f,#e01a1a)}
+.rc-bar .seg.dist{background:#191921;color:var(--txt2)}
+.rc-labels{display:flex;margin-top:5px}
+.rc-labels span{font-size:8.5px;color:var(--txt3);letter-spacing:.08em;text-transform:uppercase;text-align:center;min-width:0}
+.rc-reason{margin-top:10px;font-size:11.5px;color:var(--txt2);line-height:1.55}
+.rc-reason.muted{color:var(--txt3)}
+.vetchip{display:inline-block;font-size:8px;font-weight:900;letter-spacing:.1em;padding:1px 5px;border-radius:4px;
+  background:#2a1f10;color:var(--gold);vertical-align:middle;margin-left:4px}
+.note{padding:11px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--txt3);line-height:1.6}
+.resbanner{border:1px solid #1d3a28;background:linear-gradient(150deg,#0f2417,#101720);border-radius:var(--radius);
+  padding:15px 16px;text-align:center}
+.resbanner .t{font-size:10px;font-weight:800;letter-spacing:.2em;color:var(--green);text-transform:uppercase}
+.resbanner .w{font-size:18px;font-weight:900;text-transform:uppercase;margin-top:5px}
+.resbanner .m{font-size:12.5px;color:var(--txt2);margin-top:3px}
+/* ---------- nav ---------- */
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--shell);z-index:60;display:flex;
+  background:rgba(13,13,18,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:none;color:var(--txt3);padding:9px 0 7px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;transition:color .15s}
+nav button .ic{line-height:0;transition:transform .18s cubic-bezier(.34,1.56,.64,1)}
+nav button .ic svg{width:19px;height:19px}
+nav button .lb{font-size:8.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+nav button.on{color:var(--red2)}
+nav button.on .ic{transform:translateY(-2px) scale(1.12)}
+nav button.on::before{content:"";position:absolute;top:0;left:28%;right:28%;height:2px;background:var(--red2);border-radius:0 0 3px 3px}
+/* ---------- home / landing ---------- */
+.home-hero{position:relative;text-align:center;padding:52px 20px 34px;overflow:hidden;
+  border:1px solid var(--line);border-radius:18px;
+  background:radial-gradient(125% 130% at 50% -20%,#1a1319 0%,#131218 52%,#0e0e14 100%)}
+.home-hero::after{content:"";position:absolute;inset:-30%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(224,26,26,.07),transparent 62%);
+  animation:heroGlow 9s ease-in-out infinite alternate}
+@keyframes heroGlow{from{transform:translate(-3%,-2%) scale(.98);opacity:.5}to{transform:translate(3%,2%) scale(1.03);opacity:.85}}
+.hl-logo{font-size:33px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;line-height:1}
+.hl-logo b{color:var(--red2);font-weight:900}
+.hl-tag{margin-top:9px;font-size:10px;letter-spacing:.36em;color:var(--txt3);text-transform:uppercase}
+.hl-desc{margin:18px auto 0;max-width:44ch;color:var(--txt2);font-size:13.5px;line-height:1.75;text-wrap:pretty}
+.hl-next{position:relative;z-index:1;margin:22px auto 0;max-width:430px;background:rgba(0,0,0,.4);
+  border:1px solid var(--line);border-radius:12px;padding:13px 16px;text-align:left;display:flex;align-items:center;gap:12px}
+.hl-next .pulse{width:9px;height:9px;border-radius:50%;background:var(--red2);flex:0 0 9px;animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,59,59,.55)}70%{box-shadow:0 0 0 9px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}
+.hl-next .t{font-weight:800;font-size:13.5px;line-height:1.3}
+.hl-next .s{color:var(--txt2);font-size:11.5px;margin-top:2px;font-variant-numeric:tabular-nums}
+.hl-next .chev{margin-left:auto;color:var(--txt3);font-size:18px}
+/* ---------- feature rail (scroll-snap) ---------- */
+.rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 1px 2px;scroll-padding:0 1px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 18px,#000 calc(100% - 18px),transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 18px,#000 calc(100% - 18px),transparent)}
+.rail::-webkit-scrollbar{display:none}
+.fcard{scroll-snap-align:center;flex:0 0 80%;max-width:330px;min-height:184px;
+  background:linear-gradient(165deg,#17131b,#111117);border:1px solid var(--line);border-radius:16px;
+  padding:20px 18px;display:flex;flex-direction:column;cursor:pointer;
+  transition:border-color .2s, box-shadow .2s, transform .18s cubic-bezier(.16,1,.3,1)}
+.fcard:hover{border-color:#3a2a2f;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.fcard:active{transform:scale(.985)}
+.fcard .fi{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  background:rgba(224,26,26,.1);color:var(--red2);margin-bottom:15px}
+.fcard .fi .ico{width:20px;height:20px}
+.fcard .ft{font-size:16px;font-weight:800;letter-spacing:.01em;text-transform:uppercase}
+.fcard .fd{color:var(--txt2);font-size:12.5px;line-height:1.6;margin-top:9px;flex:1;text-wrap:pretty}
+.fcard .fgo{margin-top:15px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--txt3);display:flex;align-items:center;gap:6px;transition:color .2s}
+.fcard:hover .fgo{color:var(--red2)}
+.fcard .fgo .ico{width:13px;height:13px}
+.raildots{display:flex;justify-content:center;gap:7px;margin-top:14px}
+.raildots .d{width:6px;height:6px;border-radius:50%;background:var(--line);transition:background .25s, width .25s}
+.raildots .d.on{background:var(--red2);width:18px;border-radius:3px}
+/* ---------- rankings ---------- */
+.divchips{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.divchips::-webkit-scrollbar{display:none}
+.divchips .dc{flex:0 0 auto;background:var(--card);border:1px solid var(--line);color:var(--txt2);
+  font-size:11.5px;font-weight:800;letter-spacing:.05em;padding:8px 13px;border-radius:20px;cursor:pointer;
+  text-transform:uppercase;white-space:nowrap;transition:background .15s, border-color .15s, color .15s}
+.divchips .dc.on{background:var(--red);border-color:var(--red);color:#fff}
+.rankrow{display:flex;align-items:center;gap:11px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.rankrow:last-child{border-bottom:none}
+.rankrow .no{flex:0 0 26px;text-align:center;font-weight:900;font-size:14px;color:var(--txt3);font-variant-numeric:tabular-nums}
+.rankrow .no.champ{color:var(--gold);font-size:11px;letter-spacing:.08em;font-weight:900}
+.rankrow img.rp{width:42px;height:42px;border-radius:50%;object-fit:cover;object-position:top;
+  background:var(--bg2);border:1px solid var(--line);flex:0 0 42px}
+.rankrow.champ-row img.rp{border-color:#5a4a22}
+.rankrow .nm{font-weight:700;font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rankrow .chev{color:var(--txt3)}
+.rankrow.champ-row{background:linear-gradient(90deg,#1d1708,transparent 70%)}
+/* ---------- install sheet ---------- */
+.sheet-veil{position:fixed;inset:0;z-index:90;background:rgba(5,5,8,.6);backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .3s}
+.sheet-veil.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:91;max-width:var(--shell);margin:0 auto;
+  background:linear-gradient(170deg,#191019,#101017 60%);border:1px solid var(--line);border-bottom:none;
+  border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+  overscroll-behavior:contain;transform:translateY(105%);transition:transform .42s cubic-bezier(.16,1,.3,1)}
+.sheet.open{transform:none}
+.sheet .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 16px}
+.sheet h3{font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:9px}
+.sheet h3 .ico{color:var(--red2)}
+.sheet .step{display:flex;gap:11px;padding:9px 0;color:var(--txt2);font-size:13px;line-height:1.55;align-items:flex-start}
+.sheet .step .n{flex:0 0 21px;height:21px;border-radius:50%;background:var(--card2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:var(--txt);margin-top:1px}
+.sheet .ostitle{margin-top:14px;font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--txt3)}
+.sheet .privacy{margin-top:16px;padding:13px 14px;border-radius:12px;background:rgba(47,191,113,.06);
+  border:1px solid #1d3a28;color:var(--txt2);font-size:11.5px;line-height:1.65;display:flex;gap:10px}
+.sheet .privacy .ico{color:var(--green);flex:0 0 18px;width:18px;height:18px;margin-top:1px}
+.sheet .close{width:100%;margin-top:16px;padding:13px 0;border-radius:12px;color:var(--txt);
+  font-weight:800;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.installbtn{position:relative;z-index:1;margin:20px auto 0;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 20px;border-radius:11px;color:var(--txt2);cursor:pointer;
+  background:rgba(255,255,255,.04);border:1px solid var(--line);font-weight:700;font-size:11.5px;
+  letter-spacing:.08em;text-transform:uppercase;transition:color .2s, border-color .2s, background .2s}
+.installbtn:hover{color:var(--txt);border-color:#3a2a2f;background:rgba(255,255,255,.06)}
+.installbtn .ico{color:var(--red2)}
+/* the sheet's one-tap install keeps a stronger fill (it's the primary action there) */
+.sheet .installbtn{color:#fff;background:var(--red);border-color:var(--red);font-weight:800;padding:13px 0;width:100%}
+/* ---------- odds board ---------- */
+.oddsrow{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.oddsrow:last-child{border-bottom:none}
+.oddsrow .who{flex:1;min-width:0}
+.oddsrow .who .f{font-weight:700;font-size:13px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oddsrow .who .wc{color:var(--txt3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.oddsrow .prices{display:flex;gap:7px;align-items:center}
+.oddsrow .ml{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 9px;text-align:center;min-width:56px}
+.oddsrow .ml .v{font-weight:800;font-size:12.5px;font-variant-numeric:tabular-nums}
+.oddsrow .ml .k{font-size:8.5px;color:var(--txt3);letter-spacing:.06em;text-transform:uppercase;margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:64px}
+.oddsrow .ml.fav .v{color:var(--red2)}
+.oddsrow .mv{font-size:10px;font-weight:700}
+.oddsrow .mv.up{color:var(--green)}
+.oddsrow .mv.dn{color:var(--red2)}
+.oddshead{display:flex;align-items:baseline;gap:8px;margin:22px 4px 10px}
+.oddshead .t{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.oddshead .d{color:var(--txt3);font-size:11px}
+/* ---------- predict board ---------- */
+.predrow{padding:12px 14px;border-bottom:1px solid var(--line)}
+.predrow:last-child{border-bottom:none}
+.predrow .top{display:flex;align-items:center;gap:10px}
+.predrow .names{flex:1;min-width:0}
+.predrow .names .f{font-weight:800;font-size:13.5px;line-height:1.3}
+.predrow .names .wc{color:var(--txt3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.runbtn{background:var(--red);border:none;color:#fff;font-weight:800;font-size:11px;letter-spacing:.08em;
+  padding:8px 15px;border-radius:8px;cursor:pointer;text-transform:uppercase;transition:transform .12s}
+.runbtn:active{transform:scale(.94)}
+.runbtn[disabled]{background:var(--card2);color:var(--txt3)}
+.predres{margin-top:9px;display:none}
+.predres.show{display:block;animation:fi .3s ease}
+.predres .pk{display:flex;align-items:center;gap:9px;font-size:13px}
+.predres .pk b{font-size:14px}
+.predres .pk .pctc{font-weight:900;color:var(--red2)}
+.predres .path{color:var(--txt2);font-size:11.5px;margin-top:4px}
+.minibar{height:5px;border-radius:3px;background:#23232e;overflow:hidden;margin-top:8px}
+.minibar i{display:block;height:100%;background:linear-gradient(90deg,#7e1010,#e01a1a);width:0;transition:width .9s cubic-bezier(.22,1,.36,1)}
+.bigrun{width:100%;margin-top:12px;background:linear-gradient(135deg,#a30f0f,#e01a1a);border:none;color:#fff;
+  font-weight:900;font-size:13px;letter-spacing:.16em;padding:14px 0;border-radius:12px;cursor:pointer;text-transform:uppercase}
+.bigrun[disabled]{opacity:.55}
+/* ---------- animations ---------- */
+.stagger>*{opacity:0;animation:rowin .45s cubic-bezier(.22,1,.36,1) both}
+@keyframes rowin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.bar i,.cmp .dbar .a{transition:width .8s cubic-bezier(.22,1,.36,1)}
+.probbar .pa{transition:width .9s cubic-bezier(.22,1,.36,1)}
+/* ---------- misc ---------- */
+.skel{position:relative;overflow:hidden;background:var(--card);border-radius:var(--radius);border:1px solid var(--line)}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.045),transparent);animation:sh 1.3s infinite}
+@keyframes sh{to{transform:translateX(100%)}}
+.err{padding:26px 18px;text-align:center;color:var(--txt2);font-size:13.5px;line-height:1.6}
+.err button{margin-top:12px;background:var(--red);border:none;color:#fff;font-weight:800;padding:9px 20px;border-radius:9px;cursor:pointer}
+.spin-c{display:flex;justify-content:center;padding:26px}
+.spinner{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--red2);animation:rot .8s linear infinite}
+.muted{color:var(--txt3);font-size:12px;text-align:center;padding:16px}
+.fade-in{animation:fi .22s ease}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+footer.app{margin-top:34px;text-align:center;color:var(--txt3);font-size:10.5px;line-height:1.7;padding:0 20px}
+@media(min-width:640px){
+  .fimg{flex-basis:96px}.fimg img{height:96px}
+  .fp-hero img.hs{height:330px}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="i-home"><path d="M3 11.2 12 3.5l9 7.7"/><path d="M5.5 9.8V20.5h13V9.8"/></g>
+    <g id="i-oct"><polygon points="8.1,3 15.9,3 21,8.1 21,15.9 15.9,21 8.1,21 3,15.9 3,8.1"/><circle cx="12" cy="12" r="2.4"/></g>
+    <g id="i-cal"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></g>
+    <g id="i-trophy"><path d="M7 4h10v5.5a5 5 0 0 1-10 0Z"/><path d="M7 5.5H4v1a3.8 3.8 0 0 0 3.4 3.8M17 5.5h3v1a3.8 3.8 0 0 1-3.4 3.8"/><path d="M12 14.5V18M8.5 21h7M10 18h4"/></g>
+    <g id="i-trend"><path d="M3 17.5 9 11.5l4 4L21 7"/><path d="M15.5 7H21v5.5"/></g>
+    <g id="i-target"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></g>
+    <g id="i-search"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></g>
+    <g id="i-refresh"><path d="M20.4 9A9 9 0 1 0 21 12"/><path d="M21 3.5V9h-5.5"/></g>
+    <g id="i-pin"><path d="M12 21.2S5.4 15.3 5.4 10.4a6.6 6.6 0 0 1 13.2 0c0 4.9-6.6 10.8-6.6 10.8Z"/><circle cx="12" cy="10.2" r="2.4"/></g>
+    <g id="i-tv"><rect x="2.5" y="7" width="19" height="13" rx="2.2"/><path d="M8.5 2.5 12 6l3.5-3.5"/></g>
+    <g id="i-clock"><circle cx="12" cy="12" r="8.8"/><path d="M12 7.2v5l3.2 2"/></g>
+    <g id="i-down"><path d="M12 3.5v11.5M6.5 9.8l5.5 5.7 5.5-5.7"/><path d="M4.5 20.5h15"/></g>
+    <g id="i-shield"><path d="M12 2.6 19.6 5.4v5.9c0 4.8-3.2 8.1-7.6 9.5-4.4-1.4-7.6-4.7-7.6-9.5V5.4Z"/><path d="M8.6 11.6l2.4 2.4 4.4-4.4"/></g>
+    <g id="i-phone"><rect x="6.5" y="2.5" width="11" height="19" rx="2.6"/><path d="M10.5 18.5h3"/></g>
+    <g id="i-medal"><path d="M8.5 2.5 11 8M15.5 2.5 13 8"/><circle cx="12" cy="14.5" r="6"/><path d="M12 11.6l1.05 2.13 2.35.34-1.7 1.66.4 2.34-2.1-1.1-2.1 1.1.4-2.34-1.7-1.66 2.35-.34z"/></g>
+    <g id="i-chev-r"><path d="M9 5l7 7-7 7"/></g>
+  </defs>
+</svg>
+<div id="frame" aria-hidden="true"></div>
+<header class="hdr">
+  <button class="backbtn glass" id="backBtn" aria-label="Back">â€¹</button>
+  <div>
+    <div class="logo">EDGE<b>ENGINE</b></div>
+    <div class="sub">Calibrated UFC forecasting</div>
+  </div>
+  <button class="refreshbtn glass" id="refreshBtn" aria-label="Refresh" title="Refresh live data"><span class="ico ico-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></span></button>
+</header>
+<main id="app"></main>
+<nav>
+  <button data-nav="home"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-home"/></svg></span><span class="lb">Home</span></button>
+  <button data-nav="next"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-oct"/></svg></span><span class="lb">Next</span></button>
+  <button data-nav="events"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cal"/></svg></span><span class="lb">Events</span></button>
+  <button data-nav="ranks"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-trophy"/></svg></span><span class="lb">Ranks</span></button>
+  <button data-nav="odds"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-trend"/></svg></span><span class="lb">Odds</span></button>
+  <button data-nav="predict"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-target"/></svg></span><span class="lb">Predict</span></button>
+</nav>
+<div class="sheet-veil" id="sheetVeil" onclick="closeInstall()"></div>
+<div class="sheet" id="installSheet" role="dialog" aria-label="Install the app">
+  <div class="grab"></div>
+  <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-phone"/></svg></span>Put Edge Engine on your phone</h3>
+  <div id="installSteps"></div>
+  <div class="privacy">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-shield"/></svg></span>
+    <span><b>Private by design.</b> Edge Engine runs entirely in your browser. No account, no sign-up, and no personal information is collected or transmitted â€” ever. It requests zero device permissions (no contacts, camera, or location). Fight data comes from public sports feeds; your cache and settings never leave your device.</span>
+  </div>
+  <button class="close glass" onclick="closeInstall()">Close</button>
+</div>
+
+<script>
+"use strict";
+/* =============================================================
+   EDGE ENGINE â€” UFC live schedule, fighter stats & predictions
+   Data: ESPN public MMA APIs (fetched live, cached locally)
+   ============================================================= */
+
+const SB   = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard";
+const CORE = "https://sports.core.api.espn.com/v2/sports/mma";
+const SRCH = "https://site.web.api.espn.com/apis/search/v2";
+const SILHOUETTE = "data:image/svg+xml," + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="none"/><circle cx="50" cy="34" r="16" fill="#2a2a34"/><path d="M18 92c2-22 15-32 32-32s30 10 32 32z" fill="#2a2a34"/></svg>`);
+
+const headshotUrl = id => `https://a.espncdn.com/i/headshots/mma/players/full/${id}.png`;
+const stanceUrl = (id, side) => `https://a.espncdn.com/i/headshots/mma/players/stance/${side}/${id}.png`;
+
+/* ---------- tiny utils ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fixRef = u => String(u).replace(/^http:\/\//,"https://").replace(/\.pvt\//,".com/");
+const fmtDateLong = d => new Date(d).toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
+const fmtDateShort = d => new Date(d).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+const fmtTime = d => new Date(d).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+const tzName = () => { try { return new Intl.DateTimeFormat(undefined,{timeZoneName:"short"}).formatToParts(new Date()).find(p=>p.type==="timeZoneName").value; } catch(e){ return ""; } };
+const yyyymmdd = d => { const x=new Date(d); return x.getUTCFullYear()+String(x.getUTCMonth()+1).padStart(2,"0")+String(x.getUTCDate()).padStart(2,"0"); };
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pct=v=>Math.round(v*100);
+
+function imgFallback(img){ // chain: stance -> headshot -> silhouette
+  const steps = (img.dataset.fb||"").split("|").filter(Boolean);
+  if(steps.length){ img.src = steps.shift(); img.dataset.fb = steps.join("|"); }
+  else img.src = SILHOUETTE;
+}
+
+/* inline icon from the SVG sprite in <body> */
+const ic = (name, cls="ico") => `<span class="${cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-${name}"/></svg></span>`;
+
+/* ---------- install sheet (safe, private, no data collected) ---------- */
+let deferredInstall=null;
+window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); deferredInstall=e; });
+function openInstall(){
+  const ua=navigator.userAgent||"";
+  const isIOS=/iPhone|iPad|iPod/.test(ua), isAndroid=/Android/.test(ua);
+  const iosSteps=`
+    <div class="ostitle">iPhone / iPad (Safari)</div>
+    <div class="step"><span class="n">1</span><span>Open this page in <b>Safari</b>.</span></div>
+    <div class="step"><span class="n">2</span><span>Tap the <b>Share</b> button (the square with the arrow).</span></div>
+    <div class="step"><span class="n">3</span><span>Scroll and tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></div>`;
+  const andSteps=`
+    <div class="ostitle">Android (Chrome)</div>
+    <div class="step"><span class="n">1</span><span>Open this page in <b>Chrome</b>.</span></div>
+    <div class="step"><span class="n">2</span><span>Tap the browser <b>menu</b> (three dots, top right).</span></div>
+    <div class="step"><span class="n">3</span><span>Tap <b>Add to home screen</b> (or <b>Install app</b>), then confirm.</span></div>`;
+  let steps="";
+  if(deferredInstall) steps=`<div class="step" style="padding-top:14px"><span class="n">1</span><span><b>One tap:</b> your browser supports direct install.</span></div>
+    <button class="installbtn" style="margin-top:10px" onclick="nativeInstall()">Install now</button>`;
+  else if(isIOS) steps=iosSteps;
+  else if(isAndroid) steps=andSteps;
+  else steps=`<div class="step"><span class="n">â†’</span><span>You're on a computer â€” open this page on your phone, then follow the steps for your device.</span></div>`+iosSteps+andSteps;
+  steps+=`<div class="step" style="color:var(--txt3);font-size:11.5px"><span class="n" style="opacity:.6">i</span><span>It opens full-screen from your home screen like a native app, with your data cache intact. Nothing is downloaded from an app store â€” it's this same page, pinned.</span></div>`;
+  $("#installSteps").innerHTML=steps;
+  $("#sheetVeil").classList.add("open");
+  $("#installSheet").classList.add("open");
+}
+async function nativeInstall(){
+  if(!deferredInstall) return;
+  try{ deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall=null; closeInstall(); }catch(e){}
+}
+function closeInstall(){
+  $("#sheetVeil").classList.remove("open");
+  $("#installSheet").classList.remove("open");
+  try{ localStorage.setItem("ee:installSeen","1"); }catch(e){}
+}
+window.openInstall=openInstall; window.closeInstall=closeInstall; window.nativeInstall=nativeInstall;
+/* PWA manifest, generated at runtime (keeps the app a single file) */
+try{
+  const icoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#0b0b0f"/><text x="50" y="63" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="900" text-anchor="middle" fill="#fff">E<tspan fill="#e01a1a">E</tspan></text></svg>`;
+  const mf = { name:"Edge Engine â€” UFC Forecasting", short_name:"EdgeEngine", display:"standalone",
+    background_color:"#0b0b0f", theme_color:"#0b0b0f", start_url:location.href.split("#")[0],
+    icons:[{ src:"data:image/svg+xml,"+encodeURIComponent(icoSvg), sizes:"any", type:"image/svg+xml", purpose:"any" }] };
+  const l=document.createElement("link"); l.rel="manifest";
+  l.href=URL.createObjectURL(new Blob([JSON.stringify(mf)],{type:"application/json"}));
+  document.head.appendChild(l);
+}catch(e){}
+
+/* ---------- cached fetch layer (the "real-time sweep") ----------
+   Two tiers: an in-memory Map holding already-parsed objects sits in front
+   of localStorage, so hot data (the 65KB scoreboard, hit by every view) is
+   parsed once per session instead of on every read. Eviction is parse-free. */
+const MIN=6e4, HOUR=36e5, DAY=864e5;
+const MEM = new Map(); // "ee:"+url -> {t, d}
+function cGet(url){
+  const k="ee:"+url;
+  const hit=MEM.get(k); if(hit) return hit;
+  try{ const raw=localStorage.getItem(k); if(!raw) return null;
+    const o=JSON.parse(raw); MEM.set(k,o); return o; }catch(e){ return null; }
+}
+function cSet(url,data){
+  const k="ee:"+url, o={t:Date.now(),d:data};
+  MEM.set(k,o);
+  let s; try{ s=JSON.stringify(o); }catch(e){ return; }
+  try{ localStorage.setItem(k,s); }
+  catch(e){ evictLS(); try{ localStorage.setItem(k,s); }catch(_){} }
+}
+/* free space WITHOUT parsing any stored value: drop entries not touched this
+   session first (prior-session cache), then the oldest tracked half by the
+   timestamp we already hold in memory. */
+function evictLS(){
+  const keys=[]; for(let i=0;i<localStorage.length;i++){ const key=localStorage.key(i); if(key&&key.slice(0,3)==="ee:") keys.push(key); }
+  const untracked=keys.filter(k=>!MEM.has(k));
+  if(untracked.length){ untracked.forEach(k=>localStorage.removeItem(k)); return; }
+  [...MEM.entries()].sort((a,b)=>a[1].t-b[1].t).slice(0,Math.ceil(MEM.size/2))
+    .forEach(([k])=>{ MEM.delete(k); localStorage.removeItem(k); });
+}
+let inflight = new Map();
+async function jget(url, ttl=5*MIN, force=false){
+  url = fixRef(url);
+  if(!force){
+    const c = cGet(url);
+    if(c && Date.now()-c.t < ttl) return c.d;
+  }
+  if(inflight.has(url)) return inflight.get(url);
+  const p = (async()=>{
+    try{
+      const r = await fetch(url);
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      const d = await r.json();
+      cSet(url,d);
+      return d;
+    }catch(e){
+      const c = cGet(url); if(c) return c.d; // stale is better than nothing
+      throw e;
+    }finally{ inflight.delete(url); }
+  })();
+  inflight.set(url,p);
+  return p;
+}
+/* small concurrency limiter */
+function limiter(n){
+  let act=0; const q=[];
+  const next=()=>{ if(act>=n||!q.length) return; act++; const {fn,res,rej}=q.shift();
+    fn().then(res,rej).finally(()=>{act--;next();}); };
+  return fn=>new Promise((res,rej)=>{ q.push({fn,res,rej}); next(); });
+}
+const lim = limiter(10);
+
+/* ---------- domain helpers ---------- */
+function parseRecord(s){ // "21-2-1" or "21-2-0, 1NC"
+  const m = String(s||"").match(/(\d+)-(\d+)(?:-(\d+))?/);
+  if(!m) return null;
+  return { w:+m[1], l:+m[2], d:+(m[3]||0), text:s };
+}
+function methodText(result){
+  if(!result) return "Decision";
+  let t = result.displayName || result.shortDisplayName || result.name || "";
+  const desc = result.displayDescription || result.description || "";
+  if(desc && desc.toLowerCase() !== t.toLowerCase()) t += " â€” " + desc;
+  return t;
+}
+function methodKind(result){
+  const n = ((result&&(result.name||result.displayName))||"").toLowerCase();
+  if(n.includes("ko")) return "ko";
+  if(n.includes("sub")) return "sub";
+  if(n.includes("draw")) return "draw";
+  if(n.includes("nc")||n.includes("nocontest")||n.includes("no contest")) return "nc";
+  return "dec";
+}
+function parseClock(s){ const m=String(s||"").match(/(\d+):(\d+)/); return m? (+m[1])*60+(+m[2]) : 0; }
+function eventPill(name, done){
+  if(done) return `<span class="pill done">Final</span>`;
+  return /UFC \d/.test(name) ? `<span class="pill ppv">PPV</span>` : `<span class="pill fn">Fight Night</span>`;
+}
+
+/* ---------- data loaders ---------- */
+async function loadScoreboard(force){ return jget(SB, 5*MIN, force); }
+/* ESPN buckets events by US-Eastern date; query a Â±1-day range so UTC dates always hit */
+function dateRange(dateStr){
+  const y=+dateStr.slice(0,4), m=+dateStr.slice(4,6)-1, d=+dateStr.slice(6,8);
+  const t=Date.UTC(y,m,d);
+  return yyyymmdd(new Date(t-DAY))+"-"+yyyymmdd(new Date(t+DAY));
+}
+async function sbFor(dateStr, ttl, force){ return jget(SB+"?dates="+dateRange(dateStr), ttl, force); }
+async function loadScoreboardFor(dateStr, ttl){ return sbFor(dateStr, ttl, false); }
+
+async function loadCalendar(force){
+  const sb = await loadScoreboard(force);
+  const cal = (((sb.leagues||[])[0]||{}).calendar||[]).map(c=>({
+    label:c.label, start:c.startDate,
+    id:(String((c.event&&c.event.$ref)||"").match(/events\/(\d+)/)||[])[1]||null
+  })).filter(c=>c.id);
+  cal.sort((a,b)=>new Date(a.start)-new Date(b.start));
+  return {sb, cal};
+}
+
+/* athlete bio + record */
+async function loadBio(id){
+  const a = await jget(`${CORE}/athletes/${id}`, DAY);
+  let recText = "";
+  try{
+    const r = await jget(`${CORE}/leagues/ufc/athletes/${id}/records`, 12*HOUR);
+    const items = r.items||[];
+    const tot = items.find(x=>x.type==="total"||x.name==="overall") || items[0];
+    recText = tot ? tot.summary : "";
+  }catch(e){}
+  return {
+    id:String(id),
+    name:a.displayName||a.fullName||"Unknown",
+    first:a.firstName||"", last:a.lastName||(a.displayName||""),
+    nickname:a.nickname||"",
+    age:a.age??null, dob:a.dateOfBirth||null,
+    height:a.displayHeight||"â€”", reach:a.displayReach||"â€”",
+    weight:a.displayWeight||"â€”",
+    stance:(a.stance&&a.stance.text)||"â€”",
+    wc:(a.weightClass&&a.weightClass.text)||"",
+    gym:(a.association&&a.association.name)||"â€”",
+    country:a.citizenship||"",
+    flag:(a.flag&&a.flag.href)||"",
+    headshot:(a.headshot&&a.headshot.href)||headshotUrl(id),
+    record: recText, rec: parseRecord(recText)
+  };
+}
+
+/* full fight history + aggregated UFC stats */
+async function loadHistory(id, onStep){
+  const log = await jget(`${CORE}/athletes/${id}/eventlog?limit=50`, 6*HOUR);
+  const items = ((log.events&&log.events.items)||[]).filter(x=>x.competition);
+  const played = items.filter(x=>x.played);
+  const upcoming = items.filter(x=>!x.played);
+  const take = played.slice(0,20); // cap sweeps; covers most UFC careers
+  let doneCt=0;
+  const fights = await Promise.all(take.map(it=>lim(async()=>{
+    try{
+      const compUrl = fixRef(it.competition.$ref);
+      const comp = await jget(compUrl, 30*DAY);
+      const done = true;
+      const me   = (comp.competitors||[]).find(c=>String(c.id)===String(id));
+      const opp  = (comp.competitors||[]).find(c=>String(c.id)!==String(id));
+      let status=null;
+      try{ status = await jget(compUrl.split("?")[0]+"/status", 30*DAY); }catch(e){}
+      let oppName="Unknown", oppId=opp?String(opp.id):null;
+      if(oppId){
+        try{ const oa = await jget(`${CORE}/athletes/${oppId}`, 7*DAY); oppName = oa.displayName||oa.fullName||"Unknown"; }catch(e){}
+      }
+      let evName="";
+      const evm = compUrl.match(/events\/(\d+)/);
+      if(evm){ try{ const ev = await jget(`${CORE}/leagues/ufc/events/${evm[1]}`, 30*DAY); evName = ev.shortName||ev.name||""; }catch(e){} }
+      // per-fight stats (mine)
+      let st=null;
+      try{
+        const raw = await jget(compUrl.split("?")[0]+`/competitors/${id}/statistics`, 30*DAY);
+        const stats = {};
+        ((raw.splits&&raw.splits.categories)||[]).forEach(cat=>(cat.stats||[]).forEach(s=>stats[s.name]=s));
+        const num = n => stats[n]? parseFloat(stats[n].value ?? stats[n].displayValue) || 0 : 0;
+        st = {
+          sigL:num("sigStrikesLanded"), sigA:num("sigStrikesAttempted"),
+          totL:num("totalStrikesLanded"),
+          tdL:num("takedownsLanded"), tdA:num("takedownsAttempted"),
+          kd:num("knockDowns"), sub:num("submissions"),
+          ctrl:parseClock(stats.timeInControl && stats.timeInControl.displayValue)
+        };
+      }catch(e){}
+      const kind = methodKind(status&&status.result);
+      const res = (kind==="draw")?"D":(kind==="nc")?"D":(me&&me.winner)?"W":(opp&&opp.winner)?"L":"D";
+      const secs = status ? ((Math.max(1,status.period||1)-1)*300 + Math.min(300, Math.round(status.clock||300))) : 900;
+      doneCt++; onStep && onStep(doneCt, take.length);
+      return {
+        date:comp.date, wc:(comp.type&&comp.type.text)||"", evName,
+        oppId, oppName, res,
+        method:methodText(status&&status.result), kind,
+        round:status?(status.period||0):0, clock:status?(status.displayClock||""):"",
+        secs, st
+      };
+    }catch(e){ doneCt++; onStep && onStep(doneCt, take.length); return null; }
+  })));
+  const list = fights.filter(Boolean).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return { fights:list, upcomingCount:upcoming.length, totalPlayed:played.length };
+}
+
+function aggregate(fights){
+  const withStats = fights.filter(f=>f.st && f.secs>0);
+  const sum = k => withStats.reduce((t,f)=>t+(f.st[k]||0),0);
+  const secs = withStats.reduce((t,f)=>t+f.secs,0);
+  const min = secs/60 || 1;
+  const wins = fights.filter(f=>f.res==="W");
+  const losses = fights.filter(f=>f.res==="L");
+  const finishesW = wins.filter(f=>f.kind==="ko"||f.kind==="sub");
+  const koW = wins.filter(f=>f.kind==="ko").length, subW = wins.filter(f=>f.kind==="sub").length;
+  const last5 = fights.slice(0,5);
+  const sigA = sum("sigA");
+  const tdA = sum("tdA");
+  return {
+    n:fights.length, nStats:withStats.length, minutes:min,
+    ufcW:wins.length, ufcL:losses.length,
+    slpm: sum("sigL")/min,
+    acc: sigA? sum("sigL")/sigA : 0,
+    td15: sum("tdL")/min*15,
+    tdAcc: tdA? sum("tdL")/tdA : 0,
+    kd15: sum("kd")/min*15,
+    sub15: sum("sub")/min*15,
+    ctrlPct: secs? withStats.reduce((t,f)=>t+(f.st.ctrl||0),0)/secs : 0,
+    finishRate: wins.length? finishesW.length/wins.length : 0,
+    koShare: wins.length? koW/wins.length : 0,
+    subShare: wins.length? subW/wins.length : 0,
+    last5, form5: last5.reduce((t,f,i)=>t + (f.res==="W"?1:f.res==="L"?-1:0)*[1,.85,.7,.55,.4][i], 0),
+    form5txt: `${last5.filter(f=>f.res==="W").length}-${last5.filter(f=>f.res==="L").length}`+(last5.some(f=>f.res==="D")?`-${last5.filter(f=>f.res==="D").length}`:""),
+    lastDate: fights[0]? fights[0].date : null
+  };
+}
+
+/* full profile */
+const profCache = new Map();
+async function loadProfile(id, onStep){
+  if(profCache.has(id)) return profCache.get(id);
+  const p = (async()=>{
+    const [bio, hist] = await Promise.all([loadBio(id), loadHistory(id, onStep)]);
+    return { bio, hist, agg: aggregate(hist.fights) };
+  })();
+  profCache.set(id,p);
+  try{ return await p; }catch(e){ profCache.delete(id); throw e; }
+}
+
+/* =============================================================
+   PREDICTION â€” "Edge Engine Lite"
+   Market-first: de-vigged moneyline is the anchor; the stat model
+   applies bounded, itemized nudges (damped by data quality).
+   No line â†’ stats-only read with shrunk rates and a capped tier.
+   ============================================================= */
+const amToProb = a => a<0 ? -a/(-a+100) : 100/(a+100);
+
+async function loadMarket(evId, compId, idA, idB){
+  try{
+    const d = await jget(`${CORE}/leagues/ufc/events/${evId}/competitions/${compId}/odds`, 15*MIN);
+    const items = d.items||[];
+    if(!items.length) return null;
+    const o = items.find(x=>x.provider&&x.provider.id==="58") || items[0];
+    const side = h => { const m=String((h&&h.athlete&&h.athlete.$ref)||"").match(/athletes\/(\d+)/); return m?m[1]:null; };
+    const H=o.homeAthleteOdds, Aw=o.awayAthleteOdds;
+    if(!H||!Aw) return null;
+    const forId = id => side(H)===String(id)? H : side(Aw)===String(id)? Aw : null;
+    const oa=forId(idA), ob=forId(idB);
+    if(!oa||!ob) return null;
+    const ml = x => {
+      const cur = x.current&&x.current.moneyLine&&parseFloat(String(x.current.moneyLine.american).replace("+",""));
+      return Number.isFinite(cur)? cur : (typeof x.moneyLine==="number"? x.moneyLine : null);
+    };
+    const opn = x => { const v=x.open&&x.open.moneyLine&&parseFloat(String(x.open.moneyLine.american).replace("+","")); return Number.isFinite(v)?v:null; };
+    const mA=ml(oa), mB=ml(ob);
+    if(mA==null||mB==null) return null;
+    const ia=amToProb(mA), ib=amToProb(mB);
+    const vm = x => { // implied method split from victory-method prices
+      const v=x.current&&x.current.victoryMethod; if(!v) return null;
+      const g=k=>v[k]&&v[k].value? 1/v[k].value : 0;
+      const ko=g("koTkoDq"), sub=g("submission"), dec=g("points");
+      const t=ko+sub+dec; return t>0? {ko:ko/t, sub:sub/t, dec:dec/t} : null;
+    };
+    return {
+      provider:(o.provider&&o.provider.name)||"market",
+      mlA:mA, mlB:mB, openA:opn(oa), openB:opn(ob),
+      pA: ia/(ia+ib),
+      vmA:vm(oa), vmB:vm(ob),
+      ou:o.overUnder||null
+    };
+  }catch(e){ return null; }
+}
+const fmtMl = m => m==null? "â€”" : (m>0? "+"+m : String(m));
+/* scoreboard omits the finish method â€” the core status endpoint has it */
+const loadResult = (evId,compId) => jget(`${CORE}/leagues/ufc/events/${evId}/competitions/${compId}/status`, 30*DAY);
+
+function statsScore(A,B,f){
+  const add=(w,label,detail)=>{ if(Math.abs(w)>0.004) f.push({w,label,detail}); };
+  const ra=A.bio.rec, rb=B.bio.rec;
+  if(ra&&rb&&(ra.w+ra.l)&&(rb.w+rb.l)){
+    const wa=ra.w/(ra.w+ra.l), wb=rb.w/(rb.w+rb.l);
+    add((wa-wb)*1.2, "Career record", `${ra.text} vs ${rb.text}`);
+  }
+  add((A.agg.form5-B.agg.form5)*0.12, "Recent form (last 5)", `${A.agg.form5txt} vs ${B.agg.form5txt}`);
+  // Bayesian shrinkage: thin cage time pulls rate stats toward league averages
+  const LG={slpm:4.0,acc:.47,td15:1.2,ctrl:.20,kd15:.25,sub15:.4};
+  const shrink=(p,k)=>{ const w=p.agg.minutes/(p.agg.minutes+60); return w*p.agg[k]+(1-w)*LG[k]; };
+  if(A.agg.nStats>=2&&B.agg.nStats>=2){
+    const s=(k,wt,cl,label,fmt)=>{ const va=shrink(A,k), vb=shrink(B,k);
+      add(clamp((va-vb)*wt,-cl,cl), label, fmt(A.agg[k])+" vs "+fmt(B.agg[k])); };
+    s("slpm",0.05,.20,"Striking volume",v=>v.toFixed(1)+"/min");
+    s("acc",0.70,.15,"Striking accuracy",v=>pct(v)+"%");
+    s("td15",0.06,.15,"Takedown pace",v=>v.toFixed(1)+"/15min");
+    s("ctrl",0.45,.18,"Control time",v=>pct(v)+"%");
+    s("kd15",0.15,.12,"Knockdown power",v=>v.toFixed(2)+"/15min");
+    s("sub15",0.05,.06,"Submission threat",v=>v.toFixed(1)+"/15min");
+  }
+  // durability: KO losses per UFC fight
+  const koLn=p=>p.hist.fights.filter(x=>x.res==="L"&&x.kind==="ko").length;
+  const koL=p=>p.agg.n? koLn(p)/p.agg.n : 0;
+  add(clamp(-(koL(A)-koL(B))*0.35,-.12,.12),"Durability (KO losses)",`${koLn(A)} vs ${koLn(B)} in UFC`);
+  add(clamp((A.agg.finishRate-B.agg.finishRate)*0.10,-.06,.06),"Finish rate",`${pct(A.agg.finishRate)}% vs ${pct(B.agg.finishRate)}% of wins`);
+  if(A.bio.age&&B.bio.age){
+    const d=B.bio.age-A.bio.age;
+    if(Math.abs(d)>2) add(clamp(d*0.018,-.15,.15),"Age", `${A.bio.age} vs ${B.bio.age}`);
+  }
+  const reach = s=>parseFloat(String(s).replace(/[^\d.]/g,""))||0;
+  const dr = reach(A.bio.reach)-reach(B.bio.reach);
+  if(Math.abs(dr)>=2) add(clamp(dr*0.012,-.1,.1),"Reach", `${A.bio.reach} vs ${B.bio.reach}`);
+  const lay = p => p.agg.lastDate? (Date.now()-new Date(p.agg.lastDate))/DAY : null;
+  const la=lay(A), lb=lay(B);
+  if(la!=null&&la>420) add(-0.1,"Layoff â€” "+A.bio.last, Math.round(la/30)+" months out");
+  if(lb!=null&&lb>420) add(0.1,"Layoff â€” "+B.bio.last, Math.round(lb/30)+" months out");
+  return f.reduce((t,x)=>t+x.w,0);
+}
+
+function predict(A, B, market, rds){
+  rds = rds||3;
+  const f=[];
+  const raw = statsScore(A,B,f);
+  // data-quality gate (Phase 4 spirit): thin samples damp toward the anchor
+  const minN = Math.min(A.agg.n, B.agg.n);
+  const damp = minN>=6?1 : minN>=3?0.75 : minN>=1?0.5 : 0.35;
+  const lowData = damp<1;
+  const score = raw*damp;
+
+  let pA, anchored=false, nudge=0;
+  if(market && market.pA!=null){
+    anchored=true;
+    nudge = clamp(score*0.22, -0.07, 0.07)*damp;
+    pA = clamp(market.pA + nudge, 0.05, 0.95);
+  }else{
+    pA = clamp(1/(1+Math.exp(-1.9*score)), 0.15, 0.85);
+  }
+
+  // method matrix (market method prices when posted, else stat-based shares)
+  const mShare = (p,vm) => {
+    if(vm) return vm;
+    let ko = 0.28 + p.agg.koShare*0.45 + clamp(p.agg.kd15*0.08,0,.10);
+    let sub = 0.12 + p.agg.subShare*0.45 + clamp(p.agg.sub15*0.04,0,.08);
+    let dec = 1.15 - ko - sub; if(dec<0.18){ const s=(ko+sub); ko=ko/s*0.97; sub=sub/s*0.97; dec=0.18; }
+    const t=ko+sub+dec; return {ko:ko/t, sub:sub/t, dec:dec/t};
+  };
+  const sa=mShare(A, market&&market.vmA), sb=mShare(B, market&&market.vmB);
+  const matrix = {
+    a:{ko:pA*sa.ko, sub:pA*sa.sub, dec:pA*sa.dec},
+    b:{ko:(1-pA)*sb.ko, sub:(1-pA)*sb.sub, dec:(1-pA)*sb.dec}
+  };
+  const cells=[
+    {who:A.bio.last,how:"KO/TKO",v:matrix.a.ko},{who:A.bio.last,how:"Submission",v:matrix.a.sub},{who:A.bio.last,how:"Decision",v:matrix.a.dec},
+    {who:B.bio.last,how:"KO/TKO",v:matrix.b.ko},{who:B.bio.last,how:"Submission",v:matrix.b.sub},{who:B.bio.last,how:"Decision",v:matrix.b.dec}
+  ];
+  const top = cells.reduce((m,c)=>c.v>m.v?c:m);
+  const finishP = matrix.a.ko+matrix.a.sub+matrix.b.ko+matrix.b.sub;
+
+  f.sort((x,y)=>Math.abs(y.w)-Math.abs(x.w));
+  const round = roundProjection(A,B,matrix,finishP,rds);
+  return { pA, fav: pA>=0.5?A:B, dog: pA>=0.5?B:A,
+    favP: Math.max(pA,1-pA), matrix, top, finishP, factors:f.slice(0,6),
+    lowData, damp, anchored, nudge, market, round };
+}
+function tierOf(p, anchored){
+  let t = p>=0.68?["STRONG","strong"]:p>=0.59?["SOLID",""]:["LEAN","lean"];
+  if(!anchored && t[0]==="STRONG") t=["SOLID",""]; // no market anchor â†’ cap the tier
+  return t;
+}
+
+/* ---------- ROUND PROJECTION â€” the Veteran Gate (spec Phase 3.5 + 4.6) ----------
+   Veteran mode: both fighters 9+ UFC bouts, timing sample not poisoned, and the
+   matchup points somewhere â†’ commit to one modal round from a real finish-timing
+   histogram. Otherwise Standard mode: the honest soft read, gate reason stated. */
+const isUFCFight = f => /ufc/i.test(f.evName||"");
+function roundProjection(A, B, matrix, finishP, rds){
+  const ufcOf = p => p.hist.fights.filter(isUFCFight);
+  const nA=ufcOf(A).length, nB=ufcOf(B).length;
+  const layoffMo = p => p.agg.lastDate ? (Date.now()-new Date(p.agg.lastDate))/DAY/30 : 0;
+  const recentKOloss = p => p.hist.fights.slice(0,2).some(f=>f.res==="L"&&f.kind==="ko");
+  // gate conditions (Phase 4.6)
+  const flags=[];
+  if(nA<9||nB<9) flags.push(`needs 9+ UFC fights each â€” have ${nA} and ${nB}`);
+  if(layoffMo(A)>24) flags.push(`${A.bio.last} on a 24+ month layoff`);
+  if(layoffMo(B)>24) flags.push(`${B.bio.last} on a 24+ month layoff`);
+  if(recentKOloss(A)) flags.push(`${A.bio.last}'s chin cracked in a recent fight`);
+  if(recentKOloss(B)) flags.push(`${B.bio.last}'s chin cracked in a recent fight`);
+  const gateOpen = flags.length===0;
+
+  // finish-timing histograms (UFC only), bucketed by round 1..rds
+  const bucket = (p, sel) => { const h={}; let tot=0;
+    ufcOf(p).filter(sel).forEach(f=>{ const r=Math.min(Math.max(f.round||1,1),rds); h[r]=(h[r]||0)+1; tot++; });
+    return {h,tot}; };
+  const finWins = p => bucket(p, f=>f.res==="W"&&(f.kind==="ko"||f.kind==="sub"));
+  const finLoss = p => bucket(p, f=>f.res==="L"&&(f.kind==="ko"||f.kind==="sub"));
+  // round shape for X finishing Y = blend of X's finishing rounds + Y's got-finished rounds
+  const shape = (X,Y) => {
+    const fw=finWins(X), fl=finLoss(Y), out={};
+    for(let r=1;r<=rds;r++){
+      const a=fw.tot?(fw.h[r]||0)/fw.tot:0, d=fl.tot?(fl.h[r]||0)/fl.tot:0;
+      out[r] = (fw.tot&&fl.tot)?(a+d)/2 : fw.tot?a : d;
+    }
+    let s=0; for(let r=1;r<=rds;r++) s+=out[r];
+    if(s<=0){ const def={1:.42,2:.33,3:.25}; for(let r=1;r<=rds;r++) out[r]=r<=3?def[r]:0.06; s=1; }
+    // Y never finished in UFC â†’ durability: nudge mass one round later
+    if(fl.tot===0 && fw.tot){ const sh={}; for(let r=1;r<=rds;r++) sh[r]=out[Math.max(1,r-1)]||0; return sh; }
+    return out;
+  };
+  const fA=matrix.a.ko+matrix.a.sub, fB=matrix.b.ko+matrix.b.sub, F=fA+fB;
+  const norm = sh => { let s=0; for(const k in sh) s+=sh[k]; s=s||1; const o={}; for(const k in sh) o[k]=sh[k]/s; return o; };
+  const shA=norm(shape(A,B)), shB=norm(shape(B,A));
+  const dist={};
+  for(let r=1;r<=rds;r++) dist[r]= fA*shA[r] + fB*shB[r];
+  dist.distance = Math.max(0, 1-F);
+  // modal outcome across finish rounds + distance
+  let modal="distance", best=dist.distance;
+  for(let r=1;r<=rds;r++){ if(dist[r]>best){ best=dist[r]; modal=r; } }
+
+  if(gateOpen){
+    let reason;
+    if(modal==="distance") reason=`Two seasoned veterans (${nA} and ${nB} UFC bouts), but the styles point to the scorecards.`;
+    else{
+      const favFin=finWins(fA>=fB?A:B), defLoss=finLoss(fA>=fB?B:A);
+      const favName=(fA>=fB?A:B).bio.last, defName=(fA>=fB?B:A).bio.last;
+      const favPeak=topKey(favFin.h), defPeak=topKey(defLoss.h);
+      reason = defLoss.tot===0
+        ? `${favName} finishes most in R${favPeak||modal}, but ${defName} has never been stopped in the UFC â€” that durability drags the peak later.`
+        : `${favName}'s stoppages cluster in R${favPeak||modal}; ${defName} has been finished around R${defPeak||modal} â€” the histograms meet at R${modal}.`;
+    }
+    return {mode:"veteran", dist, modal, modalP:best, F, nA, nB, reason};
+  }
+  // standard mode â€” soft read
+  const early = dist[1]||0, late = (function(){let s=0;for(let r=2;r<=rds;r++)s+=dist[r]||0;return s;})();
+  return {mode:"standard", dist, F, finishLikely:F>=0.5,
+    lean: F>=0.5 ? (early>late?"early":"late") : null,
+    gateReason: flags.join("; ")};
+}
+function topKey(h){ let k=null,v=-1; for(const key in h){ if(h[key]>v){v=h[key];k=+key;} } return k; }
+function roundLabel(rp){
+  if(!rp) return "";
+  if(rp.mode==="veteran") return rp.modal==="distance" ? "Distance" : "R"+rp.modal;
+  return rp.finishLikely ? (rp.lean==="early"?"Finish â€” early":"Finish â€” late") : "Distance";
+}
+/* render the round-projection block for the matchup card */
+function roundBlock(P, rds){
+  const rp=P.round; if(!rp) return "";
+  const cells=[];
+  for(let r=1;r<=rds;r++) cells.push({lab:"R"+r, p:rp.dist[r]||0, peak: rp.mode==="veteran"&&rp.modal===r, kind:"round"});
+  cells.push({lab:"DIST", p:rp.dist.distance||0, peak: rp.mode==="veteran"&&rp.modal==="distance", kind:"dist"});
+  const bar = cells.map(c=>`<div class="seg ${c.peak?'peak':c.kind==='dist'?'dist':'dim'}" style="flex:${Math.max(c.p*100,3)}">${c.p>=0.13?pct(c.p)+'%':''}</div>`).join("");
+  const labels = cells.map(c=>`<span style="flex:${Math.max(c.p*100,3)}">${c.lab}</span>`).join("");
+  const vet = rp.mode==="veteran";
+  const headline = vet
+    ? (rp.modal==="distance"
+        ? `<div class="rc-round">Goes the distance <span class="p">${pct(rp.modalP)}%</span></div>`
+        : `<div class="rc-round">Finish â€” Round ${rp.modal} <span class="p">${pct(rp.modalP)}%</span></div>`)
+    : `<div class="rc-round soft">${rp.finishLikely ? (rp.lean==="early"?"Finish likely â€” early":"Finish likely â€” late") : "Likely goes the distance"}</div>`;
+  const badge = vet
+    ? `<span class="rc-badge">${ic("medal","ico")}Veteran read</span>`
+    : `<span class="rc-badge std">Standard read</span>`;
+  const reason = vet
+    ? `<div class="rc-reason">${esc(rp.reason)}</div>`
+    : `<div class="rc-reason muted">No veteran finish-timing sample (${esc(rp.gateReason)}). The engine holds back an exact round on purpose â€” that restraint is the point.</div>`;
+  return `<div class="roundcall">
+    <div class="rc-head"><span class="lbl">Round projection</span>${badge}</div>
+    ${headline}
+    <div class="rc-bar">${bar}</div>
+    <div class="rc-labels">${labels}</div>
+    ${reason}
+  </div>`;
+}
+
+/* =============================================================
+   VIEWS
+   ============================================================= */
+const app = $("#app");
+let navStack = [];
+
+function setNav(which){
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.nav===which));
+}
+function render(html){ app.innerHTML = `<div class="fade-in">${html}</div>`; window.scrollTo(0,0); stagger(); enhanceA11y(app); }
+/* make onclick rows/tiles keyboard-operable: focusable + button role (Enter/Space handled by delegation) */
+function enhanceA11y(root){
+  root.querySelectorAll("[onclick]").forEach(el=>{
+    if(el.dataset.kb) return; el.dataset.kb="1";
+    const t=el.tagName;
+    if(t!=="BUTTON"&&t!=="A"&&t!=="INPUT"){
+      if(!el.hasAttribute("tabindex")) el.tabIndex=0;
+      if(!el.hasAttribute("role")) el.setAttribute("role","button");
+    }
+  });
+}
+/* animate width bars to their target after paint */
+function animBars(){
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.querySelectorAll("[data-w]").forEach(el=>{ el.style.width = el.dataset.w; });
+  }));
+}
+/* staggered entrance for list rows (30â€“50ms/item per motion guidance) */
+function stagger(){
+  document.querySelectorAll(".stagger").forEach(card=>{
+    [...card.children].forEach((el,i)=>{ el.style.animationDelay = Math.min(i*40, 480)+"ms"; });
+  });
+}
+/* feature rail: build scroll-progress dots + sync active dot to scroll position */
+function setupRail(){
+  const rail=$("#rail"), dotsBox=$("#railDots");
+  if(!rail||!dotsBox) return;
+  const cards=[...rail.children];
+  dotsBox.innerHTML = cards.map((_,i)=>`<span class="d ${i===0?'on':''}" role="button" tabindex="0" aria-label="Feature ${i+1}"></span>`).join("");
+  const dots=[...dotsBox.children];
+  const setActive=i=>dots.forEach((d,j)=>d.classList.toggle("on", j===i));
+  // active card = whichever card's center is nearest the rail's center (robust for scroll-snap)
+  const current=()=>{ const rr=rail.getBoundingClientRect(), mid=rr.left+rr.width/2; let best=0,bd=1e9;
+    cards.forEach((c,i)=>{ const r=c.getBoundingClientRect(); const d=Math.abs(r.left+r.width/2-mid); if(d<bd){bd=d;best=i;} }); return best; };
+  let raf=0;
+  rail.addEventListener("scroll",()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; setActive(current()); }); },{passive:true});
+  dots.forEach((d,i)=>{ const jump=()=>{ const r=cards[i].getBoundingClientRect(), rr=rail.getBoundingClientRect();
+      rail.scrollBy({left:(r.left+r.width/2)-(rr.left+rr.width/2), behavior:"smooth"}); setActive(i); };
+    d.addEventListener("click",jump);
+    d.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); jump(); } }); });
+}
+/* next upcoming event from the calendar */
+async function nextEvent(force){
+  const {sb,cal} = await loadCalendar(force);
+  const now = Date.now();
+  const up = cal.filter(c=>new Date(c.start).getTime() > now-18*HOUR);
+  return { sb, cal, next: up[0]||null, upcoming: up };
+}
+function skeleton(rows=4, h=86){
+  return Array.from({length:rows},()=>`<div class="skel" style="height:${h}px;margin-bottom:12px"></div>`).join("");
+}
+function errView(msg){
+  return `<div class="card err">${esc(msg||"Couldn't reach live data.")}<br>Check your connection.<br><button onclick="route(true)">Retry</button></div>`;
+}
+
+/* ---------- EVENTS LIST ---------- */
+let countdownTimer=null;
+async function viewEvents(force){
+  setNav("events");
+  render(`<div class="skel" style="height:200px;margin-top:6px"></div><h2 class="section">Upcoming events</h2>${skeleton(5,74)}`);
+  let data;
+  try{ data = await loadCalendar(force); }catch(e){ render(errView()); return; }
+  const {sb, cal} = data;
+  const now = Date.now();
+  const upcoming = cal.filter(c=>new Date(c.start).getTime() > now-18*HOUR);
+  const past = cal.filter(c=>new Date(c.start).getTime() <= now-18*HOUR).reverse();
+  const next = upcoming[0];
+
+  // hero: use live scoreboard event if it matches, for venue info
+  let heroMeta = "";
+  let heroName = next? next.label : "No upcoming events";
+  let heroDate = next? next.start : null;
+  if(next){
+    const sbev = (sb.events||[]).find(e=>String(e.id)===String(next.id));
+    if(sbev){
+      heroName = sbev.name || heroName;
+      heroDate = sbev.date || heroDate;
+      const v = ((sbev.competitions||[])[0]||{}).venue;
+      if(v) heroMeta = `<b>${esc(v.fullName||"")}</b>${v.address? " Â· "+esc([v.address.city,v.address.country].filter(Boolean).join(", ")):""}<br>`;
+    }
+  }
+
+  const evRow = (c,done)=>{
+    const d=new Date(c.start);
+    return `<div class="evrow tap" onclick="go('#/event/${c.id}/${yyyymmdd(c.start)}')">
+      <div class="datebox"><div class="m">${d.toLocaleDateString(undefined,{month:"short"})}</div><div class="d">${d.getDate()}</div></div>
+      <div class="info"><div class="t">${esc(c.label)}</div>
+      <div class="s">${done? "Results available Â· " : ""}${d.toLocaleDateString(undefined,{weekday:"short"})} Â· ${fmtTime(c.start)} ${tzName()}</div></div>
+      ${eventPill(c.label, done)}<span class="chev">â€º</span></div>`;
+  };
+
+  render(`
+    ${next?`
+    <div class="hero tap" onclick="go('#/event/${next.id}/${yyyymmdd(next.start)}')">
+      <span class="tag">Next event</span>
+      <h1>${esc(heroName)}</h1>
+      <div class="meta">${heroMeta}<b>${fmtDateLong(heroDate)}</b> Â· ${fmtTime(heroDate)} ${tzName()}</div>
+      <div class="count" id="cd">
+        <div class="unit"><div class="n">â€“</div><div class="l">Days</div></div>
+        <div class="unit"><div class="n">â€“</div><div class="l">Hours</div></div>
+        <div class="unit"><div class="n">â€“</div><div class="l">Mins</div></div>
+        <div class="unit"><div class="n">â€“</div><div class="l">Secs</div></div>
+      </div>
+    </div>`:""}
+    <h2 class="section">Upcoming</h2>
+    <div class="card stagger">${upcoming.slice(next?1:0, (next?1:0)+14).map(c=>evRow(c,false)).join("") || `<div class="muted">Nothing scheduled.</div>`}</div>
+    <h2 class="section">Recent results</h2>
+    <div class="card stagger">${past.slice(0,10).map(c=>evRow(c,true)).join("") || `<div class="muted">â€”</div>`}</div>
+    <footer class="app">Live data sweeps via ESPN public feeds Â· times shown in your timezone (${tzName()})<br>Probabilities are forecasts, not locks.</footer>
+  `);
+
+  if(next){
+    const t = new Date(heroDate).getTime();
+    const tick=()=>{
+      const el=$("#cd"); if(!el){ clearInterval(countdownTimer); return; }
+      let s=Math.max(0,Math.floor((t-Date.now())/1000));
+      const dd=Math.floor(s/86400); s-=dd*86400;
+      const hh=Math.floor(s/3600); s-=hh*3600;
+      const mm=Math.floor(s/60); const ss=s-mm*60;
+      const ns=el.querySelectorAll(".n");
+      [dd,hh,mm,ss].forEach((v,i)=>ns[i].textContent=String(v).padStart(2,"0"));
+    };
+    clearInterval(countdownTimer); countdownTimer=setInterval(tick,1000); tick();
+  }
+}
+
+/* ---------- EVENT DETAIL ---------- */
+async function viewEvent(id, dateStr, force, navKey){
+  setNav(navKey||"events");
+  render(`<div class="skel" style="height:130px;margin-top:6px"></div><h2 class="section">Fight card</h2>${skeleton(6,96)}`);
+  let sb;
+  try{ sb = await sbFor(dateStr, isPastDate(dateStr)? 7*DAY : 5*MIN, force); }
+  catch(e){ render(errView()); return; }
+  const ev = (sb.events||[]).find(e=>String(e.id)===String(id)) || (sb.events||[])[0];
+  if(!ev){ render(errView("Event data not found for this date.")); return; }
+
+  const comps = ev.competitions||[];
+  const done = comps.some(c=>c.status&&c.status.type&&c.status.type.completed);
+  const v = (comps[0]||{}).venue||{};
+  const loc = [v.fullName, v.address&&v.address.city, v.address&&v.address.country].filter(Boolean).join(" Â· ");
+  const bcast = (()=>{ try{
+    const names=new Set(); comps.forEach(c=>(c.broadcasts||[]).forEach(b=>(b.names||[]).forEach(n=>names.add(n))));
+    return [...names].slice(0,2).join(" / ");
+  }catch(e){ return ""; }})();
+
+  // group by start time â†’ Main Card / Prelims / Early Prelims
+  const groups = new Map();
+  comps.forEach(c=>{ const k=c.date||"x"; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(c); });
+  const ordered = [...groups.entries()].sort((a,b)=>new Date(b[0])-new Date(a[0]));
+  const segNames = ordered.length>=3? ["Main Card","Prelims","Early Prelims"] : ordered.length===2? ["Main Card","Prelims"] : ["Fight Card"];
+
+  const fightRow = (c)=>{
+    const [f1,f2] = c.competitors||[];
+    if(!f1||!f2) return "";
+    const a1=f1.athlete||{}, a2=f2.athlete||{};
+    const id1=String(f1.id), id2=String(f2.id);
+    const st=c.status||{}; const fin = st.type&&st.type.completed;
+    const rds=(c.format&&c.format.regulation&&c.format.regulation.periods)||3;
+    const w1=!!f1.winner, w2=!!f2.winner;
+    const rec = f => (f.records&&f.records[0]&&f.records[0].summary)||"";
+    const nm = a => { const parts=(a.displayName||"").split(" "); const last=parts.pop()||""; return `<span class="fn">${esc(parts.join(" "))}</span>${esc(last)}`; };
+    let mid;
+    if(fin){
+      const res = st.result? methodText(st.result) : "â€¦";
+      mid = `<div class="wc">${esc((c.type&&(c.type.abbreviation||c.type.text))||"")}</div><div class="vs" style="color:var(--green)">FINAL</div><div class="rds">R${st.period||"-"} ${esc(st.displayClock||"")}</div>`;
+      return `<div class="fight tap done ${w1?"l-win":""} ${w2?"r-win":""}" onclick="go('#/fight/${dateStr}/${id}/${c.id}')">
+        ${w1?'<span class="win-badge l">WIN</span>':""}${w2?'<span class="win-badge r">WIN</span>':""}
+        <div class="fimg"><img loading="lazy" decoding="async" src="${stanceUrl(id1,"left")}" data-fb="${headshotUrl(id1)}" onerror="imgFallback(this)" alt=""></div>
+        <div class="fside ${w2?"loser":""}"><div class="nm">${nm(a1)}</div><div class="rec">${esc(rec(f1))}</div></div>
+        <div class="fmid">${mid}</div>
+        <div class="fside right ${w1?"loser":""}"><div class="nm">${nm(a2)}</div><div class="rec">${esc(rec(f2))}</div></div>
+        <div class="fimg"><img loading="lazy" decoding="async" src="${stanceUrl(id2,"right")}" data-fb="${headshotUrl(id2)}" onerror="imgFallback(this)" alt=""></div>
+        <div class="result-line" id="res-${c.id}">${esc(res)}</div>
+      </div>`;
+    }
+    mid = `<div class="wc">${esc((c.type&&(c.type.text||c.type.abbreviation))||"")}</div><div class="vs">VS</div><div class="rds">${rds} ROUNDS</div><div class="rds" id="ml-${c.id}" style="color:var(--gold)"></div>`;
+    return `<div class="fight tap" onclick="go('#/fight/${dateStr}/${id}/${c.id}')">
+      <div class="fimg"><img loading="lazy" decoding="async" src="${stanceUrl(id1,"left")}" data-fb="${headshotUrl(id1)}" onerror="imgFallback(this)" alt=""></div>
+      <div class="fside"><div class="nm">${nm(a1)}</div><div class="rec">${esc(rec(f1))}</div></div>
+      <div class="fmid">${mid}</div>
+      <div class="fside right"><div class="nm">${nm(a2)}</div><div class="rec">${esc(rec(f2))}</div></div>
+      <div class="fimg"><img loading="lazy" decoding="async" src="${stanceUrl(id2,"right")}" data-fb="${headshotUrl(id2)}" onerror="imgFallback(this)" alt=""></div>
+    </div>`;
+  };
+
+  render(`
+    <div class="evhead">
+      <h1>${esc(ev.name||"UFC Event")}</h1>
+      <div class="meta">
+        <span class="ic">${ic("cal","ico ico-sm")}</span><b>${fmtDateLong(ev.date)}</b><br>
+        ${loc?`<span class="ic">${ic("pin","ico ico-sm")}</span>${esc(loc)}<br>`:""}
+        ${bcast?`<span class="ic">${ic("tv","ico ico-sm")}</span>${esc(bcast)}<br>`:""}
+        ${ordered.map((g,i)=>`<span class="ic">${ic("clock","ico ico-sm")}</span>${segNames[i]||"Card"}: <b>${fmtTime(g[0])} ${tzName()}</b>`).join("<br>")}
+      </div>
+    </div>
+    ${ordered.map((g,i)=>`
+      <h2 class="section">${segNames[i]||"Card"}</h2>
+      <div class="card stagger">${g[1].slice().reverse().map(fightRow).join("")}</div>`).join("")}
+    <footer class="app">Tap any bout for the tale of the tape & Edge Engine read.</footer>
+  `);
+  // lazy: moneylines on upcoming rows, finish method on completed rows
+  comps.forEach(c=>{
+    const fin=c.status&&c.status.type&&c.status.type.completed;
+    const [x,y]=c.competitors||[];
+    if(!x||!y) return;
+    if(fin){
+      if(c.status.result) return;
+      lim(async()=>{
+        const s = await loadResult(id, c.id);
+        const el = document.getElementById("res-"+c.id);
+        if(el && s) el.textContent = methodText(s.result);
+      }).catch(()=>{});
+    }else{
+      lim(async()=>{
+        const m = await loadMarket(id, c.id, x.id, y.id);
+        const el = document.getElementById("ml-"+c.id);
+        if(m && el) el.textContent = fmtMl(m.mlA)+" Â· "+fmtMl(m.mlB);
+      }).catch(()=>{});
+    }
+  });
+}
+function isPastDate(dateStr){
+  const y=+dateStr.slice(0,4), m=+dateStr.slice(4,6)-1, d=+dateStr.slice(6,8);
+  return new Date(Date.UTC(y,m,d)).getTime() < Date.now()-36*HOUR;
+}
+
+/* ---------- MATCHUP / PREDICTION ---------- */
+async function viewFight(dateStr, evId, compId, force){
+  setNav("events");
+  render(`<div class="skel" style="height:240px;margin-top:6px"></div><h2 class="section">Loading dossiersâ€¦</h2>${skeleton(3,120)}
+    <div class="muted" id="prog">Sweeping fight archivesâ€¦</div>`);
+  let sb;
+  try{ sb = await sbFor(dateStr, isPastDate(dateStr)? 7*DAY : 5*MIN, false); }
+  catch(e){ render(errView()); return; }
+  const ev = (sb.events||[]).find(e=>String(e.id)===String(evId));
+  const comp = ev && (ev.competitions||[]).find(c=>String(c.id)===String(compId));
+  if(!comp){ render(errView("Bout not found.")); return; }
+  const [f1,f2]=comp.competitors||[];
+  const id1=String(f1.id), id2=String(f2.id);
+  const st=comp.status||{}; const fin=st.type&&st.type.completed;
+  const rds=(comp.format&&comp.format.regulation&&comp.format.regulation.periods)||3;
+
+  let progA=0, progB=0;
+  const updProg=()=>{ const el=$("#prog"); if(el) el.textContent=`Sweeping fight archivesâ€¦ ${progA+progB} fights analyzed`; };
+  let A,B,market=null;
+  try{
+    [A,B,market] = await Promise.all([
+      loadProfile(id1,(d)=>{progA=d;updProg();}),
+      loadProfile(id2,(d)=>{progB=d;updProg();}),
+      loadMarket(evId, compId, id1, id2)
+    ]);
+  }catch(e){ render(errView("Couldn't load fighter data.")); return; }
+
+  const P = predict(A,B,market,rds);
+  const [tierTxt,tierCls]=tierOf(P.favP, P.anchored);
+  const pFav = P.pA>=0.5 ? P.pA : 1-P.pA;
+  const pctA = pct(P.pA);
+  const dispFav = Math.min(pFav, 0.85); // engine display cap â€” humility on extremes
+  const capped = pFav>0.855;
+  const mkLine = (m => {
+    if(!m) return "";
+    const moved = m.openA!=null && Math.abs(amToProb(m.mlA)-amToProb(m.openA))>0.02;
+    return `<div class="dr"><span class="s" style="color:var(--gold)">â—†</span><span><b>Market anchor</b> â€” ${esc(A.bio.last)} ${fmtMl(m.mlA)} / ${esc(B.bio.last)} ${fmtMl(m.mlB)} (${esc(m.provider)}), implies ${pct(m.pA)}% ${esc(A.bio.last)} de-vigged. Model nudge ${P.nudge>=0?"+":""}${(P.nudge*100).toFixed(1)} pts.${m.ou?` O/U ${m.ou} rounds.`:""}</span></div>`+
+    (moved? `<div class="dr"><span class="s" style="color:var(--gold)">â†”</span><span><b>Line movement</b> â€” ${esc(A.bio.last)} opened ${fmtMl(m.openA)}, now ${fmtMl(m.mlA)} (${amToProb(m.mlA)>amToProb(m.openA)?"market moving toward":"market moving away from"} ${esc(A.bio.last)}).</span></div>`:"");
+  })(market);
+
+  const cmpRow=(label, va, vb, fa, fb, dispA, dispB)=>{
+    const t=(fa+fb)||1;
+    const aAdv = fa>fb, bAdv = fb>fa;
+    return `<div class="cmp"><div class="lbl">${label}</div>
+      <div class="vals"><span class="${aAdv?"adv":""}">${dispA}</span><span class="${bAdv?"adv":""}">${dispB}</span></div>
+      <div class="dbar"><span class="a" style="width:50%" data-w="${(fa/t*100).toFixed(1)}%"></span><span class="b" style="flex:1"></span></div></div>`;
+  };
+  const num=(v,d=1)=>Number(v||0).toFixed(d);
+
+  let coreSt = st;
+  if(fin && !st.result){ try{ coreSt = await loadResult(evId, compId) || st; }catch(e){} }
+  const winnerSide = fin ? ((f1.winner)?A:(f2.winner)?B:null) : null;
+  const resultBanner = fin? `
+    <div class="resbanner" style="margin-top:14px">
+      <div class="t">Final result</div>
+      <div class="w">${winnerSide? esc(winnerSide.bio.name)+" wins" : "Draw / No Contest"}</div>
+      <div class="m">${esc(methodText(coreSt.result))} Â· Round ${coreSt.period||"-"} (${esc(coreSt.displayClock||"")})</div>
+    </div>`:"";
+
+  render(`
+    <div class="mu-hero">
+      <div class="mu-vs"><div class="wc">${esc((comp.type&&(comp.type.text||comp.type.abbreviation))||"")} Â· ${rds} rounds</div><div class="vs">VS</div></div>
+      <div class="mu-imgs">
+        <img decoding="async" src="${stanceUrl(id1,"left")}" data-fb="${headshotUrl(id1)}" onerror="imgFallback(this)" alt="">
+        <img decoding="async" src="${stanceUrl(id2,"right")}" data-fb="${headshotUrl(id2)}" onerror="imgFallback(this)" alt="">
+      </div>
+      <div class="mu-names">
+        <div class="side tap" onclick="go('#/fighter/${id1}')"><div class="nm">${esc(A.bio.name)}</div><div class="rc">${esc(A.bio.record||"")} Â· ${esc(A.bio.country)}</div></div>
+        <div class="side tap" onclick="go('#/fighter/${id2}')"><div class="nm">${esc(B.bio.name)}</div><div class="rc">${esc(B.bio.record||"")} Â· ${esc(B.bio.country)}</div></div>
+      </div>
+    </div>
+    ${resultBanner}
+
+    <h2 class="section">${fin? "Model read (retrospective)":"Edge Engine read"}</h2>
+    <div class="pred">
+      <div class="ph"><span class="dot"></span><b>Edge Engine Lite</b><span>${P.anchored?"market-anchored":"stats-only Â· no line posted"}</span></div>
+      <div class="pick">
+        <div class="who">${esc(P.fav.bio.name)}</div>
+        <div class="tier ${tierCls}">${tierTxt} Â· ${pct(dispFav)}%${capped?"+":""}</div>
+        ${capped?`<div style="font-size:10px;color:var(--txt3);margin-top:5px">display capped at 85% â€” model reads ${pct(pFav)}%</div>`:""}
+      </div>
+      <div class="probbar"><span class="pa" style="width:50%" data-w="${clamp(pctA,8,92)}%">${pctA}%</span><span class="pb">${100-pctA}%</span></div>
+      <div class="probnames"><span>${esc(A.bio.last)}</span><span>${esc(B.bio.last)}</span></div>
+      <table class="mtx">
+        <tr><th></th><th>${esc(A.bio.last)}</th><th>${esc(B.bio.last)}</th></tr>
+        <tr><td>KO/TKO</td><td class="${P.top.who===A.bio.last&&P.top.how==='KO/TKO'?'hot':''}">${pct(P.matrix.a.ko)}%</td><td class="${P.top.who===B.bio.last&&P.top.how==='KO/TKO'?'hot':''}">${pct(P.matrix.b.ko)}%</td></tr>
+        <tr><td>Submission</td><td class="${P.top.who===A.bio.last&&P.top.how==='Submission'?'hot':''}">${pct(P.matrix.a.sub)}%</td><td class="${P.top.who===B.bio.last&&P.top.how==='Submission'?'hot':''}">${pct(P.matrix.b.sub)}%</td></tr>
+        <tr><td>Decision</td><td class="${P.top.who===A.bio.last&&P.top.how==='Decision'?'hot':''}">${pct(P.matrix.a.dec)}%</td><td class="${P.top.who===B.bio.last&&P.top.how==='Decision'?'hot':''}">${pct(P.matrix.b.dec)}%</td></tr>
+        <tr><td>Win prob.</td><td>${pctA}%</td><td>${100-pctA}%</td></tr>
+      </table>
+      ${roundBlock(P, rds)}
+      <div class="drivers">
+        <div class="dr"><span class="s">â˜…</span><span>Most likely path: <b>${esc(P.top.who)} by ${esc(P.top.how)}</b> (${pct(P.top.v)}%) Â· ${pct(P.finishP)}% chance of a finish</span></div>
+        ${mkLine}
+        ${P.factors.map(x=>`<div class="dr"><span class="s ${x.w>0?"plus":"minus"}">${x.w>0?"â–²":"â–¼"}</span><span><b>${esc(x.label)}</b> â€” ${esc(x.detail)} <i style="color:var(--txt3)">(${x.w>0?"favors "+esc(A.bio.last):"favors "+esc(B.bio.last)})</i></span></div>`).join("")}
+        ${P.lowData?`<div class="dr"><span class="s">â—</span><span><b>Low data.</b> Thin UFC sample on at least one side â€” the model regresses toward a coin flip. Treat with caution.</span></div>`:""}
+      </div>
+      <div class="note">${P.anchored
+        ? "Anchored to the de-vigged market line with bounded statistical nudges â€” the Edge Engine method, minus film study and fight-week intel."
+        : "No betting line posted yet for this bout â€” this is a stats-only read with wider uncertainty (tier capped accordingly)."}
+        Probabilities, not locks: a single punch can end any fight. If you bet, bet only what you can afford to lose.</div>
+    </div>
+
+    <h2 class="section">Tale of the tape</h2>
+    <div class="card">
+      ${cmpRow("Age", 0,0, -(A.bio.age||0), -(B.bio.age||0), esc(A.bio.age??"â€”"), esc(B.bio.age??"â€”"))}
+      ${cmpRow("Height", 0,0, parseFloat(A.bio.height)||0, parseFloat(B.bio.height)||0, esc(A.bio.height), esc(B.bio.height))}
+      ${cmpRow("Reach", 0,0, parseFloat(A.bio.reach)||0, parseFloat(B.bio.reach)||0, esc(A.bio.reach), esc(B.bio.reach))}
+      ${cmpRow("Stance", 0,0, 0, 0, esc(A.bio.stance), esc(B.bio.stance))}
+      ${cmpRow("Gym", 0,0, 0, 0, `<span style="font-size:11px">${esc(A.bio.gym)}</span>`, `<span style="font-size:11px">${esc(B.bio.gym)}</span>`)}
+    </div>
+
+    <h2 class="section">UFC career stats <span style="letter-spacing:0;text-transform:none;font-weight:600">(from ${A.agg.nStats}+${B.agg.nStats} tracked fights)</span></h2>
+    <div class="card">
+      ${cmpRow("Sig. strikes landed / min", 0,0, A.agg.slpm, B.agg.slpm, num(A.agg.slpm), num(B.agg.slpm))}
+      ${cmpRow("Striking accuracy", 0,0, A.agg.acc, B.agg.acc, pct(A.agg.acc)+"%", pct(B.agg.acc)+"%")}
+      ${cmpRow("Takedowns / 15 min", 0,0, A.agg.td15, B.agg.td15, num(A.agg.td15), num(B.agg.td15))}
+      ${cmpRow("Takedown accuracy", 0,0, A.agg.tdAcc, B.agg.tdAcc, pct(A.agg.tdAcc)+"%", pct(B.agg.tdAcc)+"%")}
+      ${cmpRow("Control time %", 0,0, A.agg.ctrlPct, B.agg.ctrlPct, pct(A.agg.ctrlPct)+"%", pct(B.agg.ctrlPct)+"%")}
+      ${cmpRow("Knockdowns / 15 min", 0,0, A.agg.kd15, B.agg.kd15, num(A.agg.kd15,2), num(B.agg.kd15,2))}
+      ${cmpRow("Finish rate (of wins)", 0,0, A.agg.finishRate, B.agg.finishRate, pct(A.agg.finishRate)+"%", pct(B.agg.finishRate)+"%")}
+      ${cmpRow("Last 5 (W-L)", 0,0, A.agg.form5, B.agg.form5, esc(A.agg.form5txt), esc(B.agg.form5txt))}
+    </div>
+    <footer class="app">Tap a fighter's name for full profile & fight history.</footer>
+  `);
+  animBars();
+}
+
+/* ---------- FIGHTER PROFILE ---------- */
+async function viewFighter(id){
+  setNav("fighters");
+  render(`<div class="skel" style="height:330px;margin-top:6px"></div>${skeleton(2,120)}<div class="muted" id="prog">Sweeping fight archivesâ€¦</div>`);
+  let prof;
+  try{
+    prof = await loadProfile(id,(d,t)=>{ const el=$("#prog"); if(el) el.textContent=`Sweeping fight archivesâ€¦ ${d}/${t}`; });
+  }catch(e){ render(errView("Couldn't load fighter data.")); return; }
+  const {bio,hist,agg} = prof;
+  const statBar=(k,v,max,disp)=>`<div class="statrow"><div class="top"><span class="k">${k}</span><span class="v">${disp}</span></div>
+    <div class="bar"><i style="width:0" data-w="${clamp(v/max*100,2,100)}%"></i></div></div>`;
+
+  render(`
+    <div class="fp-hero a-hero">
+      <img class="hs" decoding="async" src="${stanceUrl(bio.id,"left")}" data-fb="${esc(bio.headshot)}" onerror="imgFallback(this)" alt="">
+      ${bio.nickname?`<div class="nick">"${esc(bio.nickname)}"</div>`:""}
+      <h1>${esc(bio.name)}</h1>
+      <div class="rec">${esc(bio.record||"")}</div>
+      <div class="wcline">${bio.flag?`<img src="${esc(bio.flag)}" alt="">`:""}${esc([bio.wc,bio.country].filter(Boolean).join(" Â· "))}</div>
+    </div>
+    <div class="biogrid">
+      <div class="cell"><div class="v">${esc(bio.age??"â€”")}</div><div class="k">Age</div></div>
+      <div class="cell"><div class="v">${esc(bio.height)}</div><div class="k">Height</div></div>
+      <div class="cell"><div class="v">${esc(bio.reach)}</div><div class="k">Reach</div></div>
+      <div class="cell"><div class="v">${esc(bio.stance)}</div><div class="k">Stance</div></div>
+      <div class="cell"><div class="v" style="font-size:11.5px;line-height:1.3;padding-top:3px">${esc(bio.gym)}</div><div class="k">Team</div></div>
+      <div class="cell"><div class="v">${agg.form5txt}</div><div class="k">Last 5</div></div>
+    </div>
+
+    ${agg.nStats?`
+    <h2 class="section">UFC career stats <span style="letter-spacing:0;text-transform:none;font-weight:600">(${agg.nStats} tracked fights, ${Math.round(agg.minutes)} min)</span></h2>
+    <div class="card">
+      ${statBar("Sig. strikes / min", agg.slpm, 8, agg.slpm.toFixed(1))}
+      ${statBar("Striking accuracy", agg.acc, 1, pct(agg.acc)+"%")}
+      ${statBar("Takedowns / 15 min", agg.td15, 6, agg.td15.toFixed(1))}
+      ${statBar("Takedown accuracy", agg.tdAcc, 1, pct(agg.tdAcc)+"%")}
+      ${statBar("Control time", agg.ctrlPct, 1, pct(agg.ctrlPct)+"%")}
+      ${statBar("Knockdowns / 15 min", agg.kd15, 1.5, agg.kd15.toFixed(2))}
+      ${statBar("Finish rate", agg.finishRate, 1, pct(agg.finishRate)+"% of wins")}
+    </div>`:""}
+
+    <h2 class="section">Fight history <span style="letter-spacing:0;text-transform:none;font-weight:600">(UFC)</span></h2>
+    <div class="card stagger">
+      ${hist.fights.length? hist.fights.map(f=>`
+        <div class="hrow tap" ${f.oppId?`onclick="go('#/fighter/${f.oppId}')"`:""}>
+          <span class="res ${f.res}">${f.res}</span>
+          <img class="opp" loading="lazy" decoding="async" src="${f.oppId?headshotUrl(f.oppId):SILHOUETTE}" onerror="this.src='${SILHOUETTE}'" alt="">
+          <div class="inf"><div class="o">vs ${esc(f.oppName)}</div>
+          <div class="m">${esc(f.method)}${f.round?` Â· R${f.round} ${esc(f.clock)}`:""}</div></div>
+          <div class="d">${esc(f.evName||"")}<br>${fmtDateShort(f.date)}</div>
+        </div>`).join("") : `<div class="muted">No UFC fights tracked.</div>`}
+    </div>
+    <footer class="app">Stats aggregated live from per-fight ESPN data.</footer>
+  `);
+  animBars();
+}
+
+/* ---------- FIGHTER SEARCH ---------- */
+let searchTimer=null, lastQuery="";
+async function doSearch(qv){
+  lastQuery=qv;
+  const out=$("#sres"), def=$("#sdefault"), wrap=$("#rankwrap");
+  if(!out) return;
+  if(!qv || qv.trim().length<2){ out.innerHTML=""; if(def) def.style.display=""; if(wrap) wrap.style.display=""; return; }
+  if(def) def.style.display="none";
+  if(wrap) wrap.style.display="none";
+  out.innerHTML=`<div class="spin-c"><div class="spinner"></div></div>`;
+  try{
+    const d = await jget(`${SRCH}?limit=20&query=${encodeURIComponent(qv.trim())}`, 12*HOUR);
+    let players=[];
+    (d.results||[]).forEach(r=>{ if(r.type==="player"||r.type==="players") players=players.concat(r.contents||[]); });
+    players = players.filter(p=>/s:3301~/.test(p.uid||"") || /\/mma\//.test((p.link&&p.link.web)||""));
+    const rows = players.map(p=>{
+      const idm=(p.uid||"").match(/a:(\d+)/); if(!idm) return "";
+      const img=(p.image&&(p.image.default||p.image.href))||headshotUrl(idm[1]);
+      return `<div class="srow tap" onclick="go('#/fighter/${idm[1]}')">
+        <img loading="lazy" decoding="async" src="${esc(img)}" onerror="this.src='${SILHOUETTE}'" alt="">
+        <div><div class="n">${esc(p.displayName||p.name||"")}</div><div class="s">${esc(p.subtitle||p.description||"MMA")}</div></div>
+      </div>`;
+    }).filter(Boolean).join("");
+    out.innerHTML = rows? `<h2 class="section">Results</h2><div class="card">${rows}</div>`
+      : `<div class="muted">No fighters found for "${esc(qv)}".</div>`;
+  }catch(e){ out.innerHTML=`<div class="muted">Search failed â€” check connection.</div>`; }
+}
+
+/* ---------- HOME / LANDING ---------- */
+async function viewHome(force){
+  setNav("home");
+  render(`
+    <div class="home-hero a-hero">
+      <div class="hl-logo a-rise" style="--d:.15s">EDGE<b>ENGINE</b></div>
+      <div class="hl-tag a-rise" style="--d:.25s">Calibrated UFC Forecasting</div>
+      <p class="hl-desc a-rise" style="--d:.35s">Live UFC schedules and full fight cards, fighter profiles with real career stats and complete fight history, Las Vegas betting lines in real time â€” and a market-anchored prediction engine that gives you honest probabilities, never locks.</p>
+      <div class="hl-next tap glass a-rise" style="--d:.45s" id="homeNext" onclick="go('#/next')">
+        <span class="pulse"></span>
+        <div><div class="t">Loading next eventâ€¦</div><div class="s"></div></div>
+        <span class="chev">â€º</span>
+      </div>
+      <button class="installbtn a-rise" style="--d:.55s" onclick="openInstall()">${ic("down","ico ico-sm")}&nbsp;Get the app on your phone</button>
+    </div>
+    <h2 class="section">Inside the app</h2>
+    <div class="rail stagger" id="rail">
+      <div class="fcard" onclick="go('#/events')">
+        <div class="fi">${ic("cal")}</div><div class="ft">Events</div>
+        <div class="fd">Every upcoming UFC card with dates, venues, and start times â€” plus the full fight lineup and recent results.</div>
+        <div class="fgo">Browse schedule ${ic("chev-r","ico")}</div>
+      </div>
+      <div class="fcard" onclick="go('#/ranks')">
+        <div class="fi">${ic("trophy")}</div><div class="ft">Rankings</div>
+        <div class="fd">Official divisional rankings and champions. Tap any fighter for live stats and their full fight history.</div>
+        <div class="fgo">See the standings ${ic("chev-r","ico")}</div>
+      </div>
+      <div class="fcard" onclick="go('#/odds')">
+        <div class="fi">${ic("trend")}</div><div class="ft">Live Odds</div>
+        <div class="fd">Real-time Las Vegas moneylines and line movement, pulled fresh across the whole card.</div>
+        <div class="fgo">Check the lines ${ic("chev-r","ico")}</div>
+      </div>
+      <div class="fcard" onclick="go('#/predict')">
+        <div class="fi">${ic("target")}</div><div class="ft">Predictions</div>
+        <div class="fd">The Edge Engine read on every bout â€” win probability, method, and the veteran round call.</div>
+        <div class="fgo">Run the engine ${ic("chev-r","ico")}</div>
+      </div>
+    </div>
+    <div class="raildots" id="railDots"></div>
+    <footer class="app">Probabilities, not locks â€” a single punch can end any fight.</footer>
+  `);
+  setupRail();
+  if(!localStorage.getItem("ee:installSeen")) setTimeout(()=>{ if((location.hash||"#/home").includes("home")||location.hash==="") openInstall(); }, 1600);
+  try{
+    const {next} = await nextEvent(force);
+    const box=$("#homeNext"); if(!box||!next) return;
+    box.querySelector(".t").textContent = next.label;
+    const t=new Date(next.start).getTime();
+    const tick=()=>{
+      const el=$("#homeNext"); if(!el){ clearInterval(countdownTimer); return; }
+      let s=Math.max(0,Math.floor((t-Date.now())/1000));
+      const dd=Math.floor(s/86400), hh=Math.floor(s%86400/3600), mm=Math.floor(s%3600/60), ss=s%60;
+      el.querySelector(".s").textContent = `${fmtDateShort(next.start)} Â· in ${dd}d ${String(hh).padStart(2,"0")}h ${String(mm).padStart(2,"0")}m ${String(ss).padStart(2,"0")}s`;
+    };
+    clearInterval(countdownTimer); countdownTimer=setInterval(tick,1000); tick();
+  }catch(e){}
+}
+
+/* ---------- NEXT EVENT TAB ---------- */
+async function viewNext(force){
+  setNav("next");
+  render(`<div class="skel" style="height:130px;margin-top:6px"></div><h2 class="section">Fight card</h2>${skeleton(6,96)}`);
+  try{
+    const {next} = await nextEvent(force);
+    if(!next){ render(errView("No upcoming event found.")); return; }
+    await viewEvent(next.id, yyyymmdd(next.start), force, "next");
+  }catch(e){ render(errView()); }
+}
+
+/* ---------- RANKINGS ----------
+   Official UFC rankings, snapshot from ufc.com/rankings.
+   UFC.com blocks cross-site requests, so the app can't pull it live from
+   the browser â€” this embedded snapshot IS the official list, dated below. */
+const RANKS_ASOF = "July 21, 2026";
+const EMBEDDED_RANKS = [
+ {categoryName:"P4P", champion:null, fighters:[
+  "Islam Makhachev","Alexander Volkanovski","Petr Yan","Justin Gaethje","Ilia Topuria","Tom Aspinall","Sean Strickland","Merab Dvalishvili","Alex Pereira","Ciryl Gane","Joshua Van","Khamzat Chimaev","Alexandre Pantoja","Arman Tsarukyan","Charles Oliveira"]},
+ {categoryName:"Flyweight", champion:{championName:"Joshua Van"}, fighters:[
+  "Alexandre Pantoja","Manel Kape","Brandon Royval","Tatsuro Taira","Asu Almabayev","Lone'er Kavanagh","Kyoji Horiguchi","Amir Albazi","Brandon Moreno","Kevin Borjas","Mitch Raposo","Sumudaerji","Steve Erceg","Alex Perez","Alessandro Costa"]},
+ {categoryName:"Bantamweight", champion:{championName:"Petr Yan"}, fighters:[
+  "Merab Dvalishvili","Umar Nurmagomedov","Sean O'Malley","Mario Bautista","Cory Sandhagen","Song Yadong","David Martinez","Raoni Barcelos","Farid Basharat","Marcus McGhee","Deiveson Figueiredo","Aiemann Zahabi","Charles Jourdain","Bryce Mitchell","Montel Jackson"]},
+ {categoryName:"Featherweight", champion:{championName:"Alexander Volkanovski"}, fighters:[
+  "Movsar Evloev","Diego Lopes","Lerone Murphy","Aljamain Sterling","Arnold Allen","Jean Silva","Pat Sabatini","Youssef Zalal","Nathaniel Wood","Kevin Vallejos","Melquizael Costa","Steve Garcia","Aaron Pico","Jose Miguel Delgado","Joanderson Brito"]},
+ {categoryName:"Lightweight", champion:{championName:"Justin Gaethje"}, fighters:[
+  "Ilia Topuria","Arman Tsarukyan","Charles Oliveira","Max Holloway","Paddy Pimblett","Mateusz Gamrot","Renato Moicano","BenoÃ®t Saint Denis","Quillan Salkilld","Mauricio Ruffy","Tom Nolan","Dan Hooker","Rafael Fiziev","Grant Dawson","Rafa Garcia"]},
+ {categoryName:"Welterweight", champion:{championName:"Islam Makhachev"}, fighters:[
+  "Carlos Prates","Ian Machado Garry","Michael Morales","Jack Della Maddalena","Sean Brady","Gabriel Bonfim","Belal Muhammad","Leon Edwards","Joaquin Buckley","Kamaru Usman","Mike Malott","Michael Venom Page","Daniel Rodriguez","UroÅ¡ MediÄ‡","Yaroslav Amosov"]},
+ {categoryName:"Middleweight", champion:{championName:"Sean Strickland"}, fighters:[
+  "Khamzat Chimaev","Dricus Du Plessis","Nassourdine Imavov","Joe Pyfer","Brendan Allen","Caio Borralho","Anthony Hernandez","Israel Adesanya","Gregory Rodrigues","Christian Leroy Duncan","Kamaru Usman","Ikram Aliskerov","Bo Nickal","Abus Magomedov","Nursulton Ruziboev"]},
+ {categoryName:"Light Heavyweight", champion:{championName:"Carlos Ulberg"}, fighters:[
+  "Alex Pereira","Magomed Ankalaev","JiÅ™Ã­ ProchÃ¡zka","Paulo Costa","Jamahal Hill","Khalil Rountree Jr.","Dominick Reyes","Azamat Murzakanov","Bogdan Guskov","Dustin Jacoby","Navajo Stirling","Robert Whittaker","Alonzo Menifield","Johnny Walker","Jan BÅ‚achowicz"]},
+ {categoryName:"Heavyweight", champion:{championName:"Tom Aspinall"}, fighters:[
+  "Ciryl Gane","Alexander Volkov","Sergei Pavlovich","Alex Pereira","Josh Hokit","Waldo Cortes Acosta","Rizvan Kuniev","Curtis Blaydes","Serghei Spivac","Vitor Petrino","Valter Walker","Brando PeriÄiÄ‡","Mario Pinto","Mick Parkin","Ryan Spann"]},
+ {categoryName:"Women's P4P", champion:null, fighters:[
+  "Valentina Shevchenko","Kayla Harrison","Zhang Weili","Natalia Silva","Manon Fiorot","Mackenzie Dern","Alexa Grasso","Erin Blanchfield","Julianna PeÃ±a","Tatiana Suarez","Virna Jandiroba","Yan Xiaonan","Raquel Pennington","Rose Namajunas","Maycee Barber"]},
+ {categoryName:"Women's Strawweight", champion:{championName:"Mackenzie Dern"}, fighters:[
+  "Zhang Weili","Virna Jandiroba","Tatiana Suarez","Gillian Robertson","Yan Xiaonan","Fatima Kline","Piera Rodriguez","Denise Gomes","Mizuki","Alexia Thainara","Amanda Lemos","Loopy Godinez","Tabatha Ricci","Jaqueline Amorim","Talita Alencar"]},
+ {categoryName:"Women's Flyweight", champion:{championName:"Valentina Shevchenko"}, fighters:[
+  "Natalia Silva","Manon Fiorot","Alexa Grasso","Erin Blanchfield","Zhang Weili","Wang Cong","Jasmine Jasudavicius","Rose Namajunas","Maycee Barber","Tracy Cortez","Miranda Maverick","JJ Aldrich","Karine Silva","Eduarda Moura","Casey O'Neill"]},
+ {categoryName:"Women's Bantamweight", champion:{championName:"Kayla Harrison"}, fighters:[
+  "Joselyne Edwards","Norma Dumont","Luana Santos","Ailin Perez","Julianna PeÃ±a","Yana Santos","Jacqueline Cavalcanti","Michelle Montague","Melissa Croden","Karol Rosa","Bia Mesquita","Macy Chiasson","Daria Zhelezniakova","Raquel Pennington","Klaudia Sygula"]}
+];
+let curDiv = 0;
+function shortDivName(n){ return String(n||""); }
+async function viewRanks(force){
+  setNav("ranks");
+  render(`
+    <div class="searchbox glass"><span style="color:var(--txt3)">${ic("search","ico ico-sm")}</span><input id="q" type="search" aria-label="Search UFC fighters by name" placeholder="Search any UFC fighterâ€¦" autocomplete="off" spellcheck="false"></div>
+    <div id="sres" aria-live="polite"></div>
+    <div id="rankwrap"><div class="spin-c"><div class="spinner"></div></div></div>
+  `);
+  const q=$("#q");
+  q.addEventListener("input",()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(()=>doSearch(q.value,true),300); });
+  const divs = EMBEDDED_RANKS;
+  if(curDiv>=divs.length) curDiv=0;
+  const paint=()=>{
+    const d=divs[curDiv];
+    const champ = d.champion && (d.champion.championName||d.champion.name);
+    const row=(name,label,cls)=>`<div class="rankrow ${cls} tap" data-n="${encodeURIComponent(name)}" onclick="openByName(this)">
+      <span class="no ${cls?"champ":""}">${label}</span>
+      <img class="rp" src="${SILHOUETTE}" alt="" loading="lazy" decoding="async" onerror="this.src='${SILHOUETTE}'">
+      <span class="nm">${esc(name)}</span><span class="chev">â€º</span></div>`;
+    $("#rankwrap").innerHTML = `
+      <div class="divchips">${divs.map((x,i)=>`<button class="dc ${i===curDiv?"on":""}" onclick="setDiv(${i})">${esc(shortDivName(x.categoryName))}</button>`).join("")}</div>
+      <div class="card stagger">
+        ${champ? row(champ,"C","champ-row") : ""}
+        ${(d.fighters||[]).map((f,i)=>row((typeof f==="string"? f : f.name), i+1, "")).join("")}
+      </div>
+      <footer class="app">Official UFC rankings (UFC.com) Â· updated ${RANKS_ASOF}<br>Tap a fighter for stats & fight history.</footer>`;
+    stagger();
+    // resolve official portraits progressively (cached after first sweep)
+    document.querySelectorAll("#rankwrap .rankrow").forEach(r=>{
+      lim(async()=>{
+        const id = await resolveFighterId(decodeURIComponent(r.dataset.n||""));
+        if(id){ r.dataset.eid=id; const img=r.querySelector("img.rp"); if(img) img.src=headshotUrl(id); }
+      }).catch(()=>{});
+    });
+  };
+  window.setDiv=i=>{ curDiv=i; paint(); };
+  paint();
+}
+async function resolveFighterId(name){
+  if(!name) return null;
+  try{
+    const clean = name.normalize("NFD").replace(/[Ì€-Í¯]/g,"").replace(/[â€™']/g," ").replace(/Å‚/g,"l").replace(/\s+/g," ").trim();
+    const d = await jget(`${SRCH}?limit=8&query=${encodeURIComponent(clean)}`, 7*DAY);
+    let players=[];
+    (d.results||[]).forEach(r=>{ if(r.type==="player"||r.type==="players") players=players.concat(r.contents||[]); });
+    const hit = players.map(p=>(p.uid||"").match(/a:(\d+)/)).find(Boolean);
+    return hit? hit[1] : null;
+  }catch(e){ return null; }
+}
+async function openByName(el){
+  const eid = el && el.dataset && el.dataset.eid;
+  if(eid){ go("#/fighter/"+eid); return; }
+  const name = decodeURIComponent((el&&el.dataset&&el.dataset.n)||"");
+  const c = el && el.querySelector(".chev"); if(c) c.textContent="â€¦";
+  const id = await resolveFighterId(name);
+  if(id) go("#/fighter/"+id);
+  else if(c) c.textContent="?";
+}
+window.openByName=openByName;
+
+/* ---------- LIVE ODDS BOARD ---------- */
+async function viewOdds(force){
+  setNav("odds");
+  render(`<h2 class="section">Live betting lines</h2>${skeleton(4,86)}`);
+  let data;
+  try{ data = await nextEvent(force); }catch(e){ render(errView()); return; }
+  const now=Date.now();
+  const upcoming = data.upcoming.slice(0,3);
+  const past = data.cal.filter(c=>new Date(c.start).getTime() <= now-18*HOUR).slice(-1);
+  const blocks = [...upcoming.map(c=>({...c,past:false})), ...past.map(c=>({...c,past:true}))];
+  const html = [];
+  for(const b of blocks){
+    html.push(`<div class="oddshead"><span class="t">${esc(b.label)}</span><span class="d">${fmtDateShort(b.start)}${b.past?" Â· closing lines":""}</span></div>
+      <div class="card stagger" id="ob-${b.id}"><div class="muted">Loading cardâ€¦</div></div>`);
+  }
+  render(`
+    <div class="hero" style="padding:15px 16px">
+      <span class="tag">Live odds</span>
+      <div class="meta" style="margin-top:9px">Las Vegas moneylines (ESPN BET), refreshed on every sweep â€” every 15 minutes at most. Books usually post lines during fight week; unlined bouts show as pending.</div>
+    </div>
+    ${html.join("")}
+    <footer class="app">Odds are informational. If you bet, bet only what you can afford to lose.</footer>
+  `);
+  blocks.forEach(b=>{ lim(async()=>{
+    try{
+      const sb = await sbFor(yyyymmdd(b.start), b.past? 7*DAY : 5*MIN);
+      const ev = (sb.events||[]).find(e=>String(e.id)===String(b.id));
+      const box = document.getElementById("ob-"+b.id);
+      if(!ev||!box){ if(box) box.innerHTML=`<div class="muted">Card unavailable.</div>`; return; }
+      const comps=(ev.competitions||[]).slice().reverse();
+      box.innerHTML = comps.map(c=>{
+        const [f1,f2]=c.competitors||[]; if(!f1||!f2) return "";
+        const n=a=>(a.athlete&&(a.athlete.shortName||a.athlete.displayName))||"?";
+        return `<div class="oddsrow tap" onclick="go('#/fight/${yyyymmdd(b.start)}/${b.id}/${c.id}')">
+          <div class="who"><div class="f">${esc(n(f1))} vs ${esc(n(f2))}</div>
+          <div class="wc">${esc((c.type&&(c.type.text||c.type.abbreviation))||"")}</div></div>
+          <div class="prices" id="op-${c.id}"><span class="mv" style="color:var(--txt3)">pending</span></div>
+        </div>`;
+      }).join("");
+      stagger();
+      comps.forEach(c=>{ const [f1,f2]=c.competitors||[]; if(!f1||!f2) return;
+        lim(async()=>{
+          const m = await loadMarket(b.id, c.id, f1.id, f2.id);
+          const el = document.getElementById("op-"+c.id);
+          if(!el) return;
+          if(!m){ el.innerHTML = `<span class="mv" style="color:var(--txt3)">${b.past?"â€”":"not posted"}</span>`; return; }
+          const n=a=>((a.athlete&&a.athlete.shortName)||"").split(" ").pop();
+          const movA = m.openA!=null && (amToProb(m.mlA)-amToProb(m.openA));
+          const arrow = (movA!=null && Math.abs(movA)>0.02) ? `<span class="mv ${movA>0?"up":"dn"}">${movA>0?"â–²":"â–¼"}</span>` : "";
+          el.innerHTML = `
+            <div class="ml ${m.mlA<m.mlB?"fav":""}"><div class="v">${fmtMl(m.mlA)}</div><div class="k">${esc(n(f1))}</div></div>
+            <div class="ml ${m.mlB<m.mlA?"fav":""}"><div class="v">${fmtMl(m.mlB)}</div><div class="k">${esc(n(f2))}</div></div>${arrow}`;
+        }).catch(()=>{});
+      });
+    }catch(e){ const box=document.getElementById("ob-"+b.id); if(box) box.innerHTML=`<div class="muted">Couldn't load.</div>`; }
+  }).catch(()=>{}); });
+}
+
+/* ---------- PREDICTION BOARD ---------- */
+const predCache = new Map();
+async function viewPredict(force){
+  setNav("predict");
+  render(`<h2 class="section">Prediction engine</h2>${skeleton(5,80)}`);
+  let data;
+  try{ data = await nextEvent(force); }catch(e){ render(errView()); return; }
+  const next = data.next;
+  if(!next){ render(errView("No upcoming event to predict.")); return; }
+  const dateStr = yyyymmdd(next.start);
+  let sb, ev;
+  try{
+    sb = await sbFor(dateStr, 5*MIN);
+    ev = (sb.events||[]).find(e=>String(e.id)===String(next.id));
+  }catch(e){ render(errView()); return; }
+  if(!ev){ render(errView("Card not available yet.")); return; }
+  const comps=(ev.competitions||[]).slice().reverse();
+  render(`
+    <div class="pred">
+      <div class="ph"><span class="dot"></span><b>Edge Engine</b><span>next card forecast</span></div>
+      <div style="padding:13px 16px 4px">
+        <div style="font-weight:900;font-size:16px;text-transform:uppercase">${esc(ev.name||next.label)}</div>
+        <div style="color:var(--txt2);font-size:12px;margin-top:4px">${fmtDateLong(ev.date)} Â· market-anchored when lines are posted</div>
+        <button class="bigrun" id="runAll">Run full card</button>
+        <div style="color:var(--txt3);font-size:10.5px;margin-top:8px;line-height:1.5">First run sweeps both fighters' full fight archives â€” a few seconds per bout, then cached.</div>
+      </div>
+      <div style="height:12px"></div>
+    </div>
+    <h2 class="section">Bouts</h2>
+    <div class="card stagger">
+      ${comps.map(c=>{
+        const [f1,f2]=c.competitors||[]; if(!f1||!f2) return "";
+        const n=a=>(a.athlete&&a.athlete.displayName)||"?";
+        return `<div class="predrow" id="pr-${c.id}">
+          <div class="top">
+            <div class="names tap" onclick="go('#/fight/${dateStr}/${next.id}/${c.id}')">
+              <div class="f">${esc(n(f1))} <span style="color:var(--red2)">vs</span> ${esc(n(f2))}</div>
+              <div class="wc">${esc((c.type&&(c.type.text||c.type.abbreviation))||"")}</div>
+            </div>
+            <button class="runbtn" onclick="runPred('${dateStr}','${next.id}','${c.id}')">Run</button>
+          </div>
+          <div class="predres" id="pres-${c.id}"></div>
+        </div>`;
+      }).join("")}
+    </div>
+    <footer class="app">Honest probabilities from live data â€” not locks. Tap a bout's name for the full breakdown.</footer>
+  `);
+  comps.forEach(c=>{ if(predCache.has(String(c.id))) paintPred(c.id, predCache.get(String(c.id))); });
+  $("#runAll").addEventListener("click", async ()=>{
+    const btn=$("#runAll"); btn.disabled=true;
+    let i=0;
+    for(const c of comps){
+      i++;
+      btn.textContent = `Running ${i}/${comps.length}â€¦`;
+      try{ await runPred(dateStr, next.id, c.id); }catch(e){}
+    }
+    btn.textContent="Card complete";
+  });
+}
+async function runPred(dateStr, evId, compId){
+  const btn = document.querySelector(`#pr-${compId} .runbtn`);
+  if(btn){ btn.disabled=true; btn.textContent="â€¦"; }
+  try{
+    const sb = await sbFor(dateStr, 5*MIN);
+    const ev = (sb.events||[]).find(e=>String(e.id)===String(evId));
+    const comp = ev && (ev.competitions||[]).find(c=>String(c.id)===String(compId));
+    if(!comp) throw new Error("bout missing");
+    const [f1,f2]=comp.competitors;
+    const rds=(comp.format&&comp.format.regulation&&comp.format.regulation.periods)||3;
+    const [A,B,market] = await Promise.all([
+      loadProfile(String(f1.id)), loadProfile(String(f2.id)),
+      loadMarket(evId, compId, f1.id, f2.id)
+    ]);
+    const P = predict(A,B,market,rds);
+    predCache.set(String(compId), P);
+    paintPred(compId, P);
+    if(btn){ btn.textContent="â†»"; btn.disabled=false; }
+  }catch(e){
+    if(btn){ btn.textContent="Retry"; btn.disabled=false; }
+    throw e;
+  }
+}
+window.runPred=runPred;
+function paintPred(compId, P){
+  const box = document.getElementById("pres-"+compId);
+  const btn = document.querySelector(`#pr-${compId} .runbtn`);
+  if(btn){ btn.textContent="â†»"; btn.disabled=false; }
+  if(!box) return;
+  const [tierTxt] = tierOf(P.favP, P.anchored);
+  box.classList.add("show");
+  box.innerHTML = `
+    <div class="pk"><b>${esc(P.fav.bio.name)}</b><span class="pctc">${pct(Math.min(P.favP,0.85))}%${P.favP>0.855?"+":""}</span>
+      <span style="color:var(--txt3);font-size:10.5px;letter-spacing:.08em">${tierTxt} Â· ${P.anchored?"MARKET-ANCHORED":"STATS-ONLY"}</span></div>
+    <div class="path">â˜… ${esc(P.top.who)} by ${esc(P.top.how)} (${pct(P.top.v)}%) Â· Round: <b>${roundLabel(P.round)}</b>${P.round&&P.round.mode==="veteran"?' <span class="vetchip">Vet</span>':''}</div>
+    <div class="minibar"><i data-w="${(P.favP*100).toFixed(0)}%"></i></div>`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const bar=box.querySelector(".minibar i"); if(bar) bar.style.width=bar.dataset.w;
+  }));
+}
+
+/* ---------- ROUTER ---------- */
+function go(hash){ if(location.hash!==hash) location.hash=hash; else route(); }
+window.go=go; window.imgFallback=imgFallback; window.route=route;
+function route(force){
+  const h=(location.hash||"#/home").slice(2).split("/");
+  const [view,a,b,c]=h;
+  $("#backBtn").classList.toggle("show", ["event","fight","fighter"].includes(view));
+  if(view==="event") viewEvent(a,b,force===true);
+  else if(view==="fight") viewFight(a,b,c,force===true);
+  else if(view==="fighter") viewFighter(a);
+  else if(view==="fighters"||view==="ranks") viewRanks(force===true);
+  else if(view==="events") viewEvents(force===true);
+  else if(view==="next") viewNext(force===true);
+  else if(view==="odds") viewOdds(force===true);
+  else if(view==="predict") viewPredict(force===true);
+  else viewHome(force===true);
+}
+window.addEventListener("hashchange",()=>route());
+/* keyboard: Enter/Space activates role=button rows; Esc closes the install sheet */
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape" && $("#installSheet").classList.contains("open")){ closeInstall(); return; }
+  if((e.key==="Enter"||e.key===" ")){
+    const t=e.target;
+    if(t && t.getAttribute && t.getAttribute("role")==="button" && t.hasAttribute("onclick")){
+      e.preventDefault(); t.click();
+    }
+  }
+});
+$("#backBtn").addEventListener("click",()=>{ if(history.length>1) history.back(); else go("#/home"); });
+document.querySelectorAll("nav button").forEach(btn=>btn.addEventListener("click",()=>go("#/"+btn.dataset.nav)));
+$("#refreshBtn").addEventListener("click",async()=>{
+  const b=$("#refreshBtn"); b.classList.add("spin");
+  try{ route(true); } finally{ setTimeout(()=>b.classList.remove("spin"),900); }
+});
+/* revalidate schedule when app returns to foreground */
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden && (location.hash||"#/events").startsWith("#/events")) route();
+});
+route();
+</script>
+</body>
+</html>
+
+````
+
