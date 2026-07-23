@@ -283,6 +283,55 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .rankrow.champ img { border-color: #5a4a22; }
 .rankrow .rn { font-weight: 700; font-size: 14px; flex: 1; }
 
+/* ---------- odds (redesign) ---------- */
+.od .page-h .live { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+.od .page-h .live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); }
+.od .cap { margin: 12px 0 4px; font-size: 12.5px; color: var(--faint); line-height: 1.6; max-width: 70ch; }
+.od .cap b { color: var(--muted); }
+.od .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 16px 0 6px; font-size: 11.5px; color: var(--muted); }
+.od .legend .l { display: inline-flex; align-items: center; gap: 7px; }
+.od .legend .sw { width: 11px; height: 11px; border-radius: 3px; }
+.od .legend .sw.fav { background: var(--gold); }
+.od .legend .up { color: var(--up); font-weight: 700; }
+.od .legend .dn { color: var(--down); font-weight: 700; }
+.od .oddscard { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); margin-top: 12px; }
+.od table.odds { width: 100%; border-collapse: collapse; }
+.od table.odds thead th { font-family: var(--font-display), sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); font-weight: 700; text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.od table.odds thead th.r { text-align: right; }
+.od table.odds tbody td { padding: 14px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.od table.odds tbody tr:last-child td { border-bottom: none; }
+.od table.odds tbody tr { transition: background 0.14s; }
+.od table.odds tbody tr:hover { background: var(--surface-2); }
+.od .bout .f { font-family: var(--font-display), sans-serif; font-weight: 600; font-size: 18px; text-transform: uppercase; line-height: 1.1; }
+.od .bout .f .rec { font-family: var(--font-sans), sans-serif; font-weight: 500; font-size: 11.5px; text-transform: none; color: var(--faint); margin-left: 8px; font-variant-numeric: tabular-nums; }
+.od .bout .vs { color: var(--faint); font-size: 12px; margin: 2px 0; }
+.od .wc { font-family: var(--font-display), sans-serif; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.od .wc .rd { display: block; font-family: var(--font-sans), sans-serif; font-weight: 500; font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--faint); margin-top: 3px; }
+.od .ml-cell { text-align: right; }
+.od .ml-line { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.od .ml { display: inline-flex; flex-direction: column; align-items: flex-end; min-width: 66px; padding: 8px 12px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--line); }
+.od .ml .v { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
+.od .ml .who { font-size: 10px; color: var(--faint); letter-spacing: 0.04em; margin-top: 1px; white-space: nowrap; }
+.od .ml.fav { border-color: rgba(216,180,90,0.4); background: rgba(216,180,90,0.08); }
+.od .ml.fav .v { color: var(--gold); }
+.od .mv { display: inline-flex; align-items: center; gap: 3px; font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }
+.od .mv svg { width: 11px; height: 11px; }
+.od .mv.up { color: var(--up); }
+.od .mv.dn { color: var(--down); }
+.od .pending { font-family: var(--font-display), sans-serif; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); border: 1px dashed var(--line-2); border-radius: 8px; padding: 8px 14px; display: inline-block; }
+@media (max-width: 700px) {
+  .od table.odds, .od table.odds tbody, .od table.odds tr, .od table.odds td { display: block; width: 100%; }
+  .od table.odds thead { display: none; }
+  .od table.odds tbody tr { padding: 16px 16px 14px; border-bottom: 1px solid var(--line); }
+  .od table.odds tbody td { border: none; padding: 0; }
+  .od .bout { margin-bottom: 10px; }
+  .od .wc { margin-bottom: 12px; display: block; }
+  .od .ml-line { justify-content: space-between; }
+  .od .ml { flex: 1; align-items: flex-start; }
+  .od .ml .who { order: -1; margin: 0 0 2px; }
+  .od .ml-cell { text-align: left; }
+}
+
 /* ---------- rankings (redesign) ---------- */
 .rk .page-h { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
 .rk .page-h h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(30px, 5vw, 44px); letter-spacing: 0.04em; text-transform: uppercase; }

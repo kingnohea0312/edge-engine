@@ -15,8 +15,15 @@ function move(m: ReturnType<typeof parseMarket> | undefined) {
   if (!m || m.openA == null) return null;
   const delta = amToProb(m.mlA) - amToProb(m.openA);
   if (Math.abs(delta) <= 0.02) return null;
-  return delta > 0 ? "up" : "down";
+  return delta > 0 ? "up" : ("down" as const); // A shortened / drifted
 }
+
+const ArrowUp = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 15l6-6 6 6" /></svg>
+);
+const ArrowDn = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+);
 
 export default async function OddsPage() {
   let evId: string | null = null;
@@ -55,85 +62,67 @@ export default async function OddsPage() {
 
   return (
     <main>
-      <div className="wrap wrap-narrow">
-        <div className="section-head" style={{ marginTop: 4 }}>
-          <h2>Live odds</h2>
-          <span className="rule" />
-          <span className="meta tnum">{label} · {fmtDateShort(start)}</span>
+      <div className="wrap wrap-narrow od">
+        <div className="page-h">
+          <h1>Live Odds</h1>
+          <span className="ev tnum">{label} · {fmtDateShort(start)}</span>
+          <span className="live"><span className="dot" /> ESPN BET</span>
         </div>
-        <p className="muted" style={{ marginBottom: 16 }}>
-          Las Vegas moneylines (ESPN BET), swept server-side and refreshed at most every 15 minutes. Books usually post
-          lines during fight week; unlined bouts show as pending.
+        <p className="cap">
+          ESPN BET moneylines, swept server-side and refreshed at most every 15 minutes. <b>Favorite highlighted in gold;
+          arrows show line movement since open.</b> Bouts show <b>Pending</b> until a line is posted.
         </p>
+        <div className="legend">
+          <span className="l"><span className="sw fav" /> Favorite</span>
+          <span className="l"><span className="up">▲</span> Line shortened</span>
+          <span className="l"><span className="dn">▼</span> Line drifted</span>
+          <span className="l">Prices are American odds.</span>
+        </div>
 
-        {/* desktop table */}
-        <div className="card" style={{ overflow: "hidden" }}>
-          <table className="odds-table">
+        <div className="oddscard">
+          <table className="odds">
             <thead>
               <tr>
                 <th>Bout</th>
                 <th>Class</th>
-                <th style={{ textAlign: "right" }}>Moneyline</th>
-                <th style={{ textAlign: "center", width: 40 }}></th>
+                <th className="r">Moneyline · Movement</th>
               </tr>
             </thead>
             <tbody>
               {fights.map((f) => {
                 const m = markets.get(f.compId);
+                const favA = !!m && m.mlA < m.mlB;
                 const mv = move(m);
-                const favA = m && m.mlA < m.mlB;
                 return (
                   <tr key={f.compId}>
                     <td>
-                      <Link href={`/event/${evId}/${f.compId}`} style={{ fontWeight: 600 }}>
-                        {f.f1.short} vs {f.f2.short}
-                      </Link>
+                      <div className="bout">
+                        <Link href={`/event/${evId}/${f.compId}`} className="f">
+                          {f.f1.last}{f.f1.rec && <span className="rec">{f.f1.rec}</span>}
+                        </Link>
+                        <div className="vs">vs</div>
+                        <Link href={`/event/${evId}/${f.compId}`} className="f">
+                          {f.f2.last}{f.f2.rec && <span className="rec">{f.f2.rec}</span>}
+                        </Link>
+                      </div>
                     </td>
-                    <td style={{ color: "var(--faint)", fontSize: 12 }}>{f.type}</td>
-                    <td style={{ textAlign: "right" }} className="tnum">
+                    <td className="wc">{f.type}<span className="rd">{f.rounds} Rounds</span></td>
+                    <td className="ml-cell">
                       {m ? (
-                        <>
-                          <span className={`ml ${favA ? "fav" : ""}`}>{fmtMl(m.mlA)}</span>
-                          <span style={{ color: "var(--faint)" }}> / </span>
-                          <span className={`ml ${!favA ? "fav" : ""}`}>{fmtMl(m.mlB)}</span>
-                        </>
+                        <div className="ml-line">
+                          <span className={`ml${favA ? " fav" : ""}`}><span className="who">{f.f1.last}</span><span className="v">{fmtMl(m.mlA)}</span></span>
+                          {mv && <span className={`mv ${mv === "up" ? "up" : "dn"}`}>{mv === "up" ? <ArrowUp /> : <ArrowDn />}</span>}
+                          <span className={`ml${!favA ? " fav" : ""}`}><span className="who">{f.f2.last}</span><span className="v">{fmtMl(m.mlB)}</span></span>
+                        </div>
                       ) : (
-                        <span className="muted">not posted</span>
+                        <div className="ml-line"><span className="pending">Pending — line not posted</span></div>
                       )}
-                    </td>
-                    <td style={{ textAlign: "center" }} className={`mv ${mv || ""}`}>
-                      {mv === "up" ? "▲" : mv === "down" ? "▼" : ""}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-
-          {/* mobile cards */}
-          <div className="odds-cards" style={{ padding: 12 }}>
-            {fights.map((f) => {
-              const m = markets.get(f.compId);
-              const favA = m && m.mlA < m.mlB;
-              return (
-                <Link key={f.compId} href={`/event/${evId}/${f.compId}`} className="card" style={{ padding: 12 }}>
-                  <div style={{ fontWeight: 600 }}>{f.f1.short} vs {f.f2.short}</div>
-                  <div style={{ color: "var(--faint)", fontSize: 11, margin: "3px 0 8px" }}>{f.type}</div>
-                  <div className="tnum" style={{ fontWeight: 800 }}>
-                    {m ? (
-                      <>
-                        <span className={favA ? "" : ""} style={{ color: favA ? "var(--red-soft)" : "inherit" }}>{fmtMl(m.mlA)}</span>
-                        {"  /  "}
-                        <span style={{ color: !favA ? "var(--red-soft)" : "inherit" }}>{fmtMl(m.mlB)}</span>
-                      </>
-                    ) : (
-                      <span className="muted">not posted</span>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
         </div>
       </div>
     </main>
