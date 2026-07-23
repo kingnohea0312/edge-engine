@@ -1,14 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import Link from "next/link";
 import type { Metadata } from "next";
-import { getEventById, getOddsRaw, getResult } from "@/lib/data/espn";
+import { getEventById, getOddsRaw, getResult, methodText } from "@/lib/data/espn";
 import { getProfile } from "@/lib/data/profile";
-import { parseMarket, amToProb, fmtMl } from "@/lib/engine/market";
+import { parseMarket, fmtMl } from "@/lib/engine/market";
 import { predict, tierOf } from "@/lib/engine/predict";
-import { methodText } from "@/lib/data/espn";
 import { pct } from "@/lib/format";
-import FighterImg from "@/components/FighterImg";
-import { ReasoningButton } from "@/components/ReasoningModal";
+import MatchupView, { type MatchupData, type DriverSeg } from "@/components/MatchupView";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +34,12 @@ async function load(evId: string, compId: string) {
     } catch {}
   }
   const wcType = (comp.type && (comp.type.text || comp.type.abbreviation)) || "";
-  return { A, B, P, market, rds, fin, result, wcType, id1, id2, winner: c1.winner ? A : c2.winner ? B : null };
+  return {
+    A, B, P, market, rds, fin, result, wcType, id1, id2,
+    winner: c1.winner ? A : c2.winner ? B : null,
+    evName: res.ev.name || "UFC Event",
+    evDate: res.ev.date || res.dateStr || null,
+  };
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string; compId: string }> }): Promise<Metadata> {
@@ -52,27 +54,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: "Matchup" };
 }
 
-function Cmp({ label, a, b, av, bv }: { label: string; a: string; b: string; av: number; bv: number }) {
-  const t = av + bv || 1;
-  const aAdv = av > bv,
-    bAdv = bv > av;
-  return (
-    <div className="cmp">
-      <div className="lbl">{label}</div>
-      <div className="vals tnum">
-        <span className={aAdv ? "adv" : ""}>{a}</span>
-        <span className={bAdv ? "adv" : ""}>{b}</span>
-      </div>
-      <div className="dbar">
-        <span className="a" style={{ width: `${(av / t) * 100}%` }} />
-        <span className="b" />
-      </div>
-    </div>
-  );
-}
-
-const reach = (s: string) => parseFloat(String(s).replace(/[^\d.]/g, "")) || 0;
-const num = (v: number, d = 1) => Number(v || 0).toFixed(d);
+const methodKey = (how: string): "ko" | "sub" | "dec" => (how === "KO/TKO" ? "ko" : how === "Submission" ? "sub" : "dec");
+const firstName = (name: string, last: string) => {
+  const i = name.lastIndexOf(last);
+  return i > 0 ? name.slice(0, i).trim() : name;
+};
 
 export default async function Matchup({ params }: { params: Promise<{ id: string; compId: string }> }) {
   const { id, compId } = await params;
@@ -87,247 +73,123 @@ export default async function Matchup({ params }: { params: Promise<{ id: string
       </main>
     );
   }
-  const { A, B, P, market, rds, fin, result, wcType, id1, id2, winner } = d;
-  const [tierTxt, tierCls] = tierOf(P.favP, P.anchored);
-  const pctA = pct(P.pA);
+  const { A, B, P, market, rds, fin, result, wcType, id1, id2, winner, evName, evDate } = d;
+
+  const favIsA = P.pA >= 0.5;
+  const favLast = favIsA ? A.bio.last : B.bio.last;
   const dispFav = Math.min(P.favP, 0.85);
-  const capped = P.favP > 0.855;
+  const favPct = pct(dispFav);
+  const pctA = favIsA ? favPct : 100 - favPct;
+  const pctB = 100 - pctA;
+
+  const [tierText] = tierOf(P.favP, P.anchored);
+  const tierClass: "solid" | "strong" | "lean" = /strong/i.test(tierText) ? "strong" : /lean|coin|flip/i.test(tierText) ? "lean" : "solid";
+
+  const vegasPct = P.anchored && market ? pct(favIsA ? market.pA : 1 - market.pA) : null;
+  const nudge = P.anchored && market ? Math.round(P.nudge * 100) : null;
+  const favMl = P.anchored && market ? fmtMl(favIsA ? market.mlA : market.mlB) : null;
+
+  // method matrix rows (favored first)
+  const topKey = methodKey(P.top.how);
+  const mkRow = (last: string, m: { ko: number; sub: number; dec: number }) => {
+    const vals = { ko: pct(m.ko), sub: pct(m.sub), dec: pct(m.dec) };
+    const peak = P.top.who === last ? topKey : null;
+    const maxKey = (["ko", "sub", "dec"] as const).reduce((a, b) => (vals[b] > vals[a] ? b : a), "ko" as "ko" | "sub" | "dec");
+    return { who: last, ...vals, peak, hot: peak === maxKey ? [] : [maxKey] };
+  };
+  const rows = favIsA
+    ? [mkRow(A.bio.last, P.matrix.a), mkRow(B.bio.last, P.matrix.b)]
+    : [mkRow(B.bio.last, P.matrix.b), mkRow(A.bio.last, P.matrix.a)];
+  const distancePct = pct(P.matrix.a.dec + P.matrix.b.dec);
+
+  // round histogram cells
   const rp = P.round;
+  const raw: { lab: string; pct: number; kind: "round" | "dist" | "empty" }[] = [];
+  for (let r = 1; r <= 5; r++) {
+    const p = r <= rds ? pct(rp.dist[r] || 0) : 0;
+    raw.push({ lab: "R" + r, pct: p, kind: r > rds || p === 0 ? "empty" : "round" });
+  }
+  raw.push({ lab: "Dist", pct: pct(rp.dist.distance || 0), kind: "dist" });
+  const maxPct = Math.max(1, ...raw.map((c) => c.pct));
+  const cells = raw.map((c) => ({ ...c, height: c.pct > 0 ? Math.max(Math.round((c.pct / maxPct) * 100), 6) : 8 }));
 
-  // round distribution cells
-  const cells: { lab: string; p: number; peak: boolean; kind: string }[] = [];
-  for (let r = 1; r <= rds; r++)
-    cells.push({ lab: "R" + r, p: rp.dist[r] || 0, peak: rp.mode === "veteran" && rp.modal === r, kind: "round" });
-  cells.push({ lab: "DIST", p: rp.dist.distance || 0, peak: rp.mode === "veteran" && rp.modal === "distance", kind: "dist" });
+  let headPre = "", headEm = "";
+  if (rp.mode === "veteran") {
+    if (rp.modal === "distance") { headPre = "Goes the "; headEm = "distance"; }
+    else { headPre = "Finish — Round "; headEm = String(rp.modal); }
+  } else if (rp.finishLikely) { headPre = "Finish likely — "; headEm = rp.lean === "early" ? "early" : "late"; }
+  else { headPre = "Likely goes the "; headEm = "distance"; }
+  const noteText = rp.mode === "veteran"
+    ? (rp.reason || "Finish-timing histogram weighted for championship-round conditioning.")
+    : `Exact round is withheld — ${rp.gateReason || "insufficient veteran finish-timing sample"}. The engine only commits a round when the sample earns it.`;
 
-  const careerRow = (label: string, av: number, bv: number, fmt: (v: number) => string) => (
-    <Cmp key={label} label={label} a={fmt(av)} b={fmt(bv)} av={av} bv={bv} />
-  );
+  // drivers
+  const drivers: MatchupData["drivers"] = [];
+  drivers.push({
+    dir: "up",
+    segs: [
+      { text: "Most likely path: " },
+      { text: `${P.top.who} by ${P.top.how} (${pct(P.top.v)}%)`, hl: true },
+      { text: `. ${pct(P.finishP)}% chance of a finish.` },
+    ] as DriverSeg[],
+    sub: "Highest single-outcome probability on the board.",
+    fav: P.top.who,
+  });
+  for (const f of P.factors) {
+    const favorsLast = f.w > 0 ? A.bio.last : B.bio.last;
+    drivers.push({
+      dir: favorsLast === favLast ? "up" : "dn",
+      segs: [{ text: `${f.label}: ` }, { text: f.detail, num: true }] as DriverSeg[],
+      sub: "",
+      fav: favorsLast,
+    });
+  }
+  if (P.lowData) {
+    drivers.push({
+      dir: "dn",
+      segs: [{ text: "Low data — thin UFC sample on at least one side; the model regresses toward the market line." }] as DriverSeg[],
+      sub: "",
+      fav: "",
+    });
+  }
 
-  return (
-    <main>
-      <div className="wrap wrap-narrow">
-        <div className="mu">
-          {/* spine */}
-          <div className="mu-spine full">
-            <div className="col">
-              <FighterImg id={id1} variant="stance" side="left" alt={A.bio.name} />
-            </div>
-            <div className="vs">VS</div>
-            <div className="col">
-              <FighterImg id={id2} variant="stance" side="right" alt={B.bio.name} />
-            </div>
-            <div className="mu-names" style={{ gridColumn: "1 / -1" }}>
-              <Link href={`/fighter/${id1}`} className="n">
-                <div className="nm">{A.bio.name}</div>
-                <div className="rc tnum">{A.bio.record} · {A.bio.country}</div>
-              </Link>
-              <Link href={`/fighter/${id2}`} className="n">
-                <div className="nm">{B.bio.name}</div>
-                <div className="rc tnum">{B.bio.record} · {B.bio.country}</div>
-              </Link>
-            </div>
-          </div>
+  const asOf = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " ET";
+  const dateText = evDate
+    ? `${new Date(evDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "America/New_York" })}`
+    : "";
+  const resultText = fin
+    ? `${winner ? winner.bio.name + " wins" : "Draw / No Contest"} · ${methodText(result.result)} · R${result.period || "-"}`
+    : null;
 
-          {fin && (
-            <div className="card full" style={{ padding: 16, textAlign: "center", borderColor: "#1d3a28" }}>
-              <div className="kicker" style={{ color: "var(--up)" }}>Final result</div>
-              <div className="display" style={{ fontSize: 24, textTransform: "uppercase", marginTop: 6 }}>
-                {winner ? `${winner.bio.name} wins` : "Draw / No Contest"}
-              </div>
-              <div style={{ color: "var(--muted)", marginTop: 3 }}>
-                {methodText(result.result)} · Round {result.period || "-"} ({result.displayClock || ""})
-              </div>
-            </div>
-          )}
+  const espnImg = (fid: string) => `https://a.espncdn.com/i/headshots/mma/players/full/${fid}.png`;
 
-          {/* prediction panel */}
-          <div className="pred full">
-            <div className="ph">
-              <span className="dot" />
-              <b>Edge Engine</b>
-              <span>{P.anchored ? "market-anchored" : "stats-only · no line posted"}</span>
-            </div>
-            <div className="pick">
-              <div className="who">{P.favName}</div>
-              <div className={`tier ${tierCls}`}>
-                {tierTxt} · {pct(dispFav)}%{capped ? "+" : ""}
-              </div>
-              {capped && (
-                <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 6 }}>
-                  display capped at 85% for humility — model reads {pct(P.favP)}%
-                </div>
-              )}
-              <div style={{ marginTop: 12 }}>
-                <ReasoningButton evId={id} compId={compId} label="Open full reasoning" />
-              </div>
-            </div>
-            <div className="probbar">
-              <span className="pa tnum" style={{ width: `${Math.max(8, Math.min(92, pctA))}%` }}>{pctA}%</span>
-              <span className="pb tnum">{100 - pctA}%</span>
-            </div>
-            <div className="probnames">
-              <span>{A.bio.last}</span>
-              <span>{B.bio.last}</span>
-            </div>
+  const data: MatchupData = {
+    eventId: id,
+    evName,
+    wc: wcType,
+    roundsLabel: `${rds} Rounds`,
+    dateText,
+    a: { id: id1, first: firstName(A.bio.name, A.bio.last), last: A.bio.last, record: A.bio.record, sub: [A.bio.stance, A.bio.country].filter(Boolean).join(" · "), img: espnImg(id1) },
+    b: { id: id2, first: firstName(B.bio.name, B.bio.last), last: B.bio.last, record: B.bio.record, sub: [B.bio.stance, B.bio.country].filter(Boolean).join(" · "), img: espnImg(id2) },
+    favIsA,
+    pctA,
+    pctB,
+    favName: P.favName,
+    tierText,
+    tierClass,
+    anchored: P.anchored,
+    modelPct: favPct,
+    vegasPct,
+    nudge,
+    favMl,
+    method: { rows, distancePct },
+    round: { mode: rp.mode, headPre, headEm, cells, noteVet: rp.mode === "veteran", noteText },
+    drivers,
+    finishPct: pct(P.finishP),
+    grounding: { sweptA: A.hist.fights.length, sweptB: B.hist.fights.length, asOf },
+    fin,
+    resultText,
+  };
 
-            {P.anchored && market && (
-              <div className="anchor-line">
-                <div className="cell">
-                  <div className="k">Market line</div>
-                  <div className="v gold tnum">{fmtMl(market.mlA)} / {fmtMl(market.mlB)}</div>
-                </div>
-                <div className="cell">
-                  <div className="k">Implied (de-vig)</div>
-                  <div className="v tnum">{pct(market.pA)}% {A.bio.last}</div>
-                </div>
-                <div className="cell">
-                  <div className="k">Model nudge</div>
-                  <div className={`v tnum ${P.nudge >= 0 ? "up" : "down"}`}>
-                    {P.nudge >= 0 ? "+" : ""}{(P.nudge * 100).toFixed(1)} pts
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <table className="mtx">
-              <tbody>
-                <tr>
-                  <th />
-                  <th>{A.bio.last}</th>
-                  <th>{B.bio.last}</th>
-                </tr>
-                {(["KO/TKO", "Submission", "Decision"] as const).map((how, i) => {
-                  const key = (["ko", "sub", "dec"] as const)[i];
-                  const av = P.matrix.a[key],
-                    bv = P.matrix.b[key];
-                  return (
-                    <tr key={how}>
-                      <td>{how}</td>
-                      <td className={P.top.who === A.bio.last && P.top.how === how ? "hot tnum" : "tnum"}>{pct(av)}%</td>
-                      <td className={P.top.who === B.bio.last && P.top.how === how ? "hot tnum" : "tnum"}>{pct(bv)}%</td>
-                    </tr>
-                  );
-                })}
-                <tr>
-                  <td>Win prob.</td>
-                  <td className="tnum">{pctA}%</td>
-                  <td className="tnum">{100 - pctA}%</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* round projection */}
-            <div className="roundcall">
-              <div className="rh">
-                <span className="lbl">Round projection</span>
-                <span className={`badge ${rp.mode === "veteran" ? "" : "std"}`}>
-                  {rp.mode === "veteran" ? "Veteran read" : "Standard read"}
-                </span>
-              </div>
-              <div className="rr display">
-                {rp.mode === "veteran"
-                  ? rp.modal === "distance"
-                    ? <>Goes the distance <span className="p tnum">{pct(rp.modalP || 0)}%</span></>
-                    : <>Finish — Round {rp.modal} <span className="p tnum">{pct(rp.modalP || 0)}%</span></>
-                  : rp.finishLikely
-                    ? rp.lean === "early" ? "Finish likely — early" : "Finish likely — late"
-                    : "Likely goes the distance"}
-              </div>
-              <div className="rbar">
-                {cells.map((c) => (
-                  <div
-                    key={c.lab}
-                    className={`seg ${c.peak ? "peak" : c.kind === "dist" ? "dist" : "dim"}`}
-                    style={{ flex: Math.max(c.p * 100, 3) }}
-                  >
-                    {c.p >= 0.13 ? pct(c.p) + "%" : ""}
-                  </div>
-                ))}
-              </div>
-              <div className="rlabels">
-                {cells.map((c) => (
-                  <span key={c.lab} style={{ flex: Math.max(c.p * 100, 3) }}>{c.lab}</span>
-                ))}
-              </div>
-              <div className="reason">
-                {rp.mode === "veteran"
-                  ? rp.reason
-                  : `No veteran finish-timing sample (${rp.gateReason}). The engine holds back an exact round on purpose — that restraint is the point.`}
-              </div>
-            </div>
-
-            <div className="drivers">
-              <div className="dr">
-                <span className="s">★</span>
-                <span>
-                  Most likely path: <b>{P.top.who} by {P.top.how}</b> ({pct(P.top.v)}%) · {pct(P.finishP)}% chance of a finish
-                </span>
-              </div>
-              {market && market.openA != null && Math.abs(amToProb(market.mlA) - amToProb(market.openA)) > 0.02 && (
-                <div className="dr">
-                  <span className="s" style={{ color: "var(--gold)" }}>↔</span>
-                  <span>
-                    <b>Line movement</b> — {A.bio.last} opened {fmtMl(market.openA)}, now {fmtMl(market.mlA)} (
-                    {amToProb(market.mlA) > amToProb(market.openA) ? "market moving toward" : "moving away from"} {A.bio.last}).
-                  </span>
-                </div>
-              )}
-              {P.factors.map((x) => (
-                <div className="dr" key={x.label}>
-                  <span className={`s ${x.w > 0 ? "plus" : "minus"}`}>{x.w > 0 ? "▲" : "▼"}</span>
-                  <span>
-                    <b>{x.label}</b> — {x.detail}{" "}
-                    <i style={{ color: "var(--faint)" }}>(favors {x.w > 0 ? A.bio.last : B.bio.last})</i>
-                  </span>
-                </div>
-              ))}
-              {P.lowData && (
-                <div className="dr">
-                  <span className="s">◐</span>
-                  <span>
-                    <b>Low data.</b> Thin UFC sample on at least one side — the model regresses toward the market line. Treat with caution.
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="note">
-              {P.anchored
-                ? "Anchored to the de-vigged market line with bounded statistical nudges — the Edge Engine method, minus film study and fight-week intel."
-                : "No betting line posted yet for this bout — a stats-only read with wider uncertainty (tier capped accordingly)."}{" "}
-              Probabilities, not locks: a single punch can end any fight. If you bet, bet only what you can afford to lose.
-            </div>
-          </div>
-
-          {/* tale of the tape */}
-          <div className="card" style={{ padding: "6px 18px" }}>
-            <div className="section-head" style={{ marginTop: 14 }}>
-              <h2 style={{ fontSize: 18 }}>Tale of the tape</h2>
-              <span className="rule" />
-            </div>
-            <Cmp label="Age" a={String(A.bio.age ?? "—")} b={String(B.bio.age ?? "—")} av={-(A.bio.age || 0)} bv={-(B.bio.age || 0)} />
-            <Cmp label="Height" a={A.bio.height} b={B.bio.height} av={parseFloat(A.bio.height) || 0} bv={parseFloat(B.bio.height) || 0} />
-            <Cmp label="Reach" a={A.bio.reach} b={B.bio.reach} av={reach(A.bio.reach)} bv={reach(B.bio.reach)} />
-            <Cmp label="Stance" a={A.bio.stance} b={B.bio.stance} av={1} bv={1} />
-            <Cmp label="Gym" a={A.bio.gym} b={B.bio.gym} av={1} bv={1} />
-          </div>
-
-          {/* career stats */}
-          <div className="card" style={{ padding: "6px 18px" }}>
-            <div className="section-head" style={{ marginTop: 14 }}>
-              <h2 style={{ fontSize: 18 }}>UFC career stats</h2>
-              <span className="rule" />
-              <span className="meta">{A.agg.nStats}+{B.agg.nStats} tracked</span>
-            </div>
-            {careerRow("Sig. strikes / min", A.agg.slpm, B.agg.slpm, (v) => num(v))}
-            {careerRow("Striking accuracy", A.agg.acc, B.agg.acc, (v) => pct(v) + "%")}
-            {careerRow("Takedowns / 15", A.agg.td15, B.agg.td15, (v) => num(v))}
-            {careerRow("Control time", A.agg.ctrlPct, B.agg.ctrlPct, (v) => pct(v) + "%")}
-            {careerRow("Knockdowns / 15", A.agg.kd15, B.agg.kd15, (v) => num(v, 2))}
-            {careerRow("Finish rate", A.agg.finishRate, B.agg.finishRate, (v) => pct(v) + "%")}
-          </div>
-        </div>
-      </div>
-    </main>
-  );
+  return <MatchupView d={data} />;
 }
