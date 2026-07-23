@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getProfile } from "@/lib/data/profile";
 import { fmtDateShort, pct } from "@/lib/format";
-import { headshotUrl, SILHOUETTE } from "@/lib/images";
 import FighterImg from "@/components/FighterImg";
+import StatBars, { type StatItem } from "@/components/StatBars";
 
 export const dynamic = "force-dynamic";
 
@@ -17,19 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 }
 
-function StatBar({ k, v, max, disp }: { k: string; v: number; max: number; disp: string }) {
-  return (
-    <div className="statrow">
-      <div className="top">
-        <span className="k">{k}</span>
-        <span className="v tnum">{disp}</span>
-      </div>
-      <div className="bar">
-        <i style={{ width: `${Math.max(2, Math.min(100, (v / max) * 100))}%` }} />
-      </div>
-    </div>
-  );
-}
+const clamp = (v: number) => Math.max(2, Math.min(100, v));
 
 export default async function FighterPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,101 +33,99 @@ export default async function FighterPage({ params }: { params: Promise<{ id: st
   }
   const { bio, hist, agg } = prof;
 
+  const stats: StatItem[] = agg.nStats
+    ? [
+        { label: "Sig. strikes / min", widthPct: clamp((agg.slpm / 8) * 100), disp: agg.slpm.toFixed(1) },
+        { label: "Striking accuracy", widthPct: pct(agg.acc), disp: pct(agg.acc) + "%" },
+        { label: "Takedowns / 15 min", widthPct: clamp((agg.td15 / 6) * 100), disp: agg.td15.toFixed(1) },
+        { label: "Takedown accuracy", widthPct: pct(agg.tdAcc), disp: pct(agg.tdAcc) + "%" },
+        { label: "Control time", widthPct: pct(agg.ctrlPct), disp: pct(agg.ctrlPct) + "%" },
+        { label: "Knockdowns / 15 min", widthPct: clamp((agg.kd15 / 1.5) * 100), disp: agg.kd15.toFixed(2) },
+        { label: "Finish rate", widthPct: pct(agg.finishRate), disp: pct(agg.finishRate) + "%", gold: true },
+      ]
+    : [];
+
   return (
     <main>
-      <div className="wrap">
-        <div className="fp">
-          <div>
-            <div className="fp-hero">
+      <div className="wrap wrap-narrow fp2">
+        <div className="ctx">
+          <Link href="/rankings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
+            Rankings
+          </Link>
+        </div>
+
+        <section className="fp">
+          <div className="fp-hero">
+            <div className="fp-slot">
               <FighterImg id={id} variant="stance" side="left" alt={bio.name} />
-              {bio.nickname ? <div className="nick">&ldquo;{bio.nickname}&rdquo;</div> : null}
-              <h1>{bio.name}</h1>
-              <div className="rec tnum">{bio.record}</div>
-              <div className="wcl">{[bio.wc, bio.country].filter(Boolean).join(" · ")}</div>
             </div>
-            <div className="biogrid" style={{ marginTop: 14 }}>
-              {[
-                [String(bio.age ?? "—"), "Age"],
-                [bio.height, "Height"],
-                [bio.reach, "Reach"],
-                [bio.stance, "Stance"],
-                [agg.form5txt, "Last 5"],
-                [bio.gym, "Team"],
-              ].map(([v, k]) => (
-                <div className="cell" key={k}>
-                  <div className="v" style={{ fontSize: k === "Team" ? 11.5 : undefined, lineHeight: 1.25 }}>{v}</div>
-                  <div className="k">{k}</div>
-                </div>
-              ))}
+            <div className="fp-id">
+              {bio.nickname && <div className="nick">&ldquo;{bio.nickname}&rdquo;</div>}
+              <h1>{bio.name}</h1>
+              <div className="rec">{bio.record}<span className="w">Pro record</span></div>
+              <div className="wc">
+                {bio.wc && <span className="chip">{bio.wc}</span>}
+                {[bio.country, bio.stance].filter(Boolean).join(" · ")}
+              </div>
             </div>
           </div>
+          <div className="biogrid">
+            {[
+              [String(bio.age ?? "—"), "Age"],
+              [bio.height, "Height"],
+              [bio.reach, "Reach"],
+              [bio.stance, "Stance"],
+              [agg.form5txt, "Last 5"],
+              [bio.gym, "Team"],
+            ].map(([v, k]) => (
+              <div className="cell" key={k}>
+                <div className="v" style={{ fontSize: k === "Team" ? 13 : undefined }}>{v}</div>
+                <div className="k">{k}</div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-          <div>
-            {agg.nStats ? (
-              <>
-                <div className="section-head" style={{ marginTop: 0 }}>
-                  <h2 style={{ fontSize: 20 }}>Career stats</h2>
-                  <span className="rule" />
-                  <span className="meta">{agg.nStats} tracked · {Math.round(agg.minutes)} min</span>
-                </div>
-                <div className="card" style={{ padding: "6px 18px" }}>
-                  <StatBar k="Sig. strikes / min" v={agg.slpm} max={8} disp={agg.slpm.toFixed(1)} />
-                  <StatBar k="Striking accuracy" v={agg.acc} max={1} disp={pct(agg.acc) + "%"} />
-                  <StatBar k="Takedowns / 15 min" v={agg.td15} max={6} disp={agg.td15.toFixed(1)} />
-                  <StatBar k="Takedown accuracy" v={agg.tdAcc} max={1} disp={pct(agg.tdAcc) + "%"} />
-                  <StatBar k="Control time" v={agg.ctrlPct} max={1} disp={pct(agg.ctrlPct) + "%"} />
-                  <StatBar k="Knockdowns / 15 min" v={agg.kd15} max={1.5} disp={agg.kd15.toFixed(2)} />
-                  <StatBar k="Finish rate" v={agg.finishRate} max={1} disp={pct(agg.finishRate) + "% of wins"} />
-                </div>
-              </>
-            ) : null}
+        <div className="cols">
+          {agg.nStats ? (
+            <section className="panel">
+              <div className="panel-h"><span className="k">Career stats</span><span className="n">{agg.nStats} tracked · {Math.round(agg.minutes)} min</span></div>
+              <StatBars stats={stats} />
+            </section>
+          ) : (
+            <div />
+          )}
 
-            <div className="section-head">
-              <h2 style={{ fontSize: 20 }}>Fight history</h2>
-              <span className="rule" />
-              <span className="meta">UFC</span>
-            </div>
-            <div className="card">
+          <section className="panel">
+            <div className="panel-h"><span className="k">Fight history</span><span className="n">{hist.fights.length} UFC bouts</span></div>
+            <div className="hist">
               {hist.fights.length ? (
                 hist.fights.map((f, i) => {
                   const inner = (
                     <>
                       <span className={`res ${f.res}`}>{f.res}</span>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        className=""
-                        src={f.oppId ? headshotUrl(f.oppId) : SILHOUETTE}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", objectPosition: "top", background: "var(--surface)", border: "1px solid var(--line)" }}
-                      />
-                      <div className="inf">
-                        <div className="o">vs {f.oppName}</div>
-                        <div className="m">{f.method}{f.round ? ` · R${f.round} ${f.clock}` : ""}</div>
+                      <div className="mid">
+                        <div className="o">{f.oppName}</div>
+                        <div className="m">{f.method}{f.round ? ` · R${f.round}${f.clock ? " " + f.clock : ""}` : ""}</div>
                       </div>
-                      <div className="d tnum">
-                        {f.evName}
-                        <br />
-                        {fmtDateShort(f.date)}
+                      <div className="rt">
+                        <div className="e">{f.evName}</div>
+                        <div className="d">{fmtDateShort(f.date)}</div>
                       </div>
                     </>
                   );
                   return f.oppId ? (
-                    <Link key={i} href={`/fighter/${f.oppId}`} className="hrow">
-                      {inner}
-                    </Link>
+                    <Link key={i} href={`/fighter/${f.oppId}`} className="h">{inner}</Link>
                   ) : (
-                    <div key={i} className="hrow">
-                      {inner}
-                    </div>
+                    <div key={i} className="h">{inner}</div>
                   );
                 })
               ) : (
                 <div className="err">No UFC fights tracked.</div>
               )}
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </main>
