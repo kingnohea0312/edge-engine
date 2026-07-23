@@ -2,9 +2,9 @@
 /** Shared card-legs computation — one engine path used by the /api/predict/[evId]
  *  route AND by lockCard, so the API, the modal recap, and the locked snapshot all
  *  come from the same computation (no duplicate/divergent engine runs). */
-import { getEventById, getOddsRaw } from "./espn";
+import { getEventById } from "./espn";
 import { getProfile } from "./profile";
-import { parseMarket } from "@/lib/engine/market";
+import { resolveMarket } from "./market";
 import { predict, tierOf } from "@/lib/engine/predict";
 import { buildLeg, type Leg } from "@/lib/engine/reasoning";
 
@@ -29,12 +29,8 @@ export async function computeCardLegs(evId: string): Promise<CardResult | null> 
           const rds = (comp.format && comp.format.regulation && comp.format.regulation.periods) || 3;
           const wc = (comp.type && (comp.type.text || comp.type.abbreviation)) || "";
           const isMain = idx === n - 1;
-          const [A, B, oddsRaw] = await Promise.all([
-            getProfile(id1),
-            getProfile(id2),
-            getOddsRaw(evId, String(comp.id)).catch(() => null),
-          ]);
-          const market = oddsRaw ? parseMarket(oddsRaw, id1, id2) : null;
+          const [A, B] = await Promise.all([getProfile(id1), getProfile(id2)]);
+          const market = await resolveMarket(evId, String(comp.id), id1, id2, A.bio.name, B.bio.name);
           const P = predict(A, B, market, rds);
           const [tierTxt] = tierOf(P.favP, P.anchored);
           return buildLeg(

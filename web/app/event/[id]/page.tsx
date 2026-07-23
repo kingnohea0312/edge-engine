@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { getEventById, getOddsRaw } from "@/lib/data/espn";
+import { getEventById } from "@/lib/data/espn";
 import { shapeEvent, type ShapedFight } from "@/lib/data/shape";
-import { parseMarket, fmtMl } from "@/lib/engine/market";
+import { resolveMarket } from "@/lib/data/market";
+import { fmtMl } from "@/lib/engine/market";
+import type { Market } from "@/lib/engine/types";
 import { fmtDateLong, fmtTime } from "@/lib/format";
 import EventDetail, { type ESegment } from "@/components/EventDetail";
 
@@ -21,11 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 async function marketFor(evId: string, f: ShapedFight) {
   if (f.done) return null;
-  try {
-    return parseMarket(await getOddsRaw(evId, f.compId), f.f1.id, f.f2.id);
-  } catch {
-    return null;
-  }
+  return resolveMarket(evId, f.compId, f.f1.id, f.f2.id, f.f1.name, f.f2.name);
 }
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +41,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   }
   const ev = shapeEvent(res.ev, res.dateStr);
   const allFights = ev.segments.flatMap((s) => s.fights);
-  const markets = new Map<string, ReturnType<typeof parseMarket>>();
+  const markets = new Map<string, Market | null>();
   await Promise.all(allFights.map(async (f) => markets.set(f.compId, await marketFor(ev.id, f))));
 
   const colon = ev.name.indexOf(":");

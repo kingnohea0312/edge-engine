@@ -24,6 +24,44 @@ npm start        # set PORT to change the port, e.g. PORT=3100 npm start
 
 Requires Node 18+ (developed on Node 24). No environment variables are required.
 
+### Betting odds (important)
+
+**ESPN's MMA odds feed is empty.** Its `/competitions/{id}/odds` endpoint returns
+`count: 0` for every UFC bout — verified on both upcoming *and* completed
+events — so the engine's market anchor has no input from ESPN and every bout
+falls back to a stats-only read with the confidence tier capped.
+
+Live odds therefore come from **[The Odds API](https://the-odds-api.com)**
+(DraftKings, FanDuel, BetMGM, …). To enable them:
+
+1. Get a key at https://the-odds-api.com (free tier = 500 requests/month).
+2. Add it to `web/.env.local`:
+   ```
+   ODDS_API_KEY=your_key_here
+   ```
+3. Restart the dev server.
+
+Without a key the app still runs — it just shows "Pending" and predicts
+stats-only, exactly as it does today.
+
+**Cost control.** One request returns *every* upcoming MMA event, so a refresh
+costs a single credit. The TTL is adaptive: short during fight week (when lines
+are posted and move), long otherwise. Defaults keep a free key comfortably
+under quota.
+
+| Var | Default | Purpose |
+|---|---|---|
+| `ODDS_API_KEY` | — | Enables live sportsbook odds. Unset = ESPN fallback = Pending. |
+| `ODDS_TTL_FIGHTWEEK_MIN` | `15` | Refresh interval when an event is within the fight-week window. |
+| `ODDS_TTL_MIN` | `240` | Refresh interval otherwise. |
+| `ODDS_FIGHTWEEK_HOURS` | `72` | How close an event must be to count as fight week. |
+
+On a paid plan, set `ODDS_TTL_FIGHTWEEK_MIN=5` for near-real-time lines.
+
+**Not provided by this feed** (so the app does not fake them): victory-method
+prices (the method matrix stays model-only) and opening lines (line-movement
+arrows stay unavailable).
+
 ### Optional environment variables
 
 | Var | Purpose |

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getCalendar, getEventById, getOddsRaw } from "@/lib/data/espn";
+import { getCalendar, getEventById } from "@/lib/data/espn";
 import { shapeEvent } from "@/lib/data/shape";
-import { parseMarket, amToProb, fmtMl } from "@/lib/engine/market";
+import { resolveMarket } from "@/lib/data/market";
+import { amToProb, fmtMl } from "@/lib/engine/market";
+import type { Market } from "@/lib/engine/types";
 import { fmtDateShort } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
   description: "Real-time Las Vegas moneylines and line movement for the next UFC card.",
 };
 
-function move(m: ReturnType<typeof parseMarket> | undefined) {
+function move(m: Market | null | undefined) {
   if (!m || m.openA == null) return null;
   const delta = amToProb(m.mlA) - amToProb(m.openA);
   if (Math.abs(delta) <= 0.02) return null;
@@ -49,16 +51,16 @@ export default async function OddsPage() {
   const res = await getEventById(evId);
   const ev = res ? shapeEvent(res.ev, res.dateStr) : null;
   const fights = ev ? ev.segments.flatMap((s) => s.fights).filter((f) => !f.done) : [];
-  const markets = new Map<string, ReturnType<typeof parseMarket>>();
+  const markets = new Map<string, Market | null>();
   await Promise.all(
     fights.map(async (f) => {
-      try {
-        markets.set(f.compId, parseMarket(await getOddsRaw(evId!, f.compId), f.f1.id, f.f2.id));
-      } catch {
-        markets.set(f.compId, null);
-      }
+      markets.set(f.compId, await resolveMarket(evId!, f.compId, f.f1.id, f.f2.id, f.f1.name, f.f2.name));
     }),
   );
+
+  // Name the book(s) actually quoting this card, rather than assuming one.
+  const books = [...new Set([...markets.values()].filter(Boolean).map((m) => m!.provider))];
+  const bookLabel = books.length === 0 ? "No book connected" : books.length === 1 ? books[0] : `${books[0]} +${books.length - 1}`;
 
   return (
     <main>
@@ -66,11 +68,12 @@ export default async function OddsPage() {
         <div className="page-h">
           <h1>Live Odds</h1>
           <span className="ev tnum">{label} · {fmtDateShort(start)}</span>
-          <span className="live"><span className="dot" /> ESPN BET</span>
+          <span className="live"><span className="dot" /> {bookLabel}</span>
         </div>
         <p className="cap">
-          ESPN BET moneylines, swept server-side and refreshed at most every 15 minutes. <b>Favorite highlighted in gold;
-          arrows show line movement since open.</b> Bouts show <b>Pending</b> until a line is posted.
+          {bookLabel === "No book connected"
+            ? "No odds provider is configured, so lines can't be shown. Add an ODDS_API_KEY to pull live moneylines from DraftKings, FanDuel, BetMGM and others."
+            : <>Live moneylines from {bookLabel}, swept server-side. <b>Favorite highlighted in gold.</b> Bouts show <b>Pending</b> until a book posts a line.</>}
         </p>
         <div className="legend">
           <span className="l"><span className="sw fav" /> Favorite</span>

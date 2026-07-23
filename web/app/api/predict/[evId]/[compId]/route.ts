@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
-import { getEventById, getOddsRaw, headshotUrl } from "@/lib/data/espn";
+import { getEventById, headshotUrl } from "@/lib/data/espn";
 import { getProfile } from "@/lib/data/profile";
-import { parseMarket } from "@/lib/engine/market";
+import { resolveMarket } from "@/lib/data/market";
 import { predict, tierOf } from "@/lib/engine/predict";
 import { buildLeg } from "@/lib/engine/reasoning";
 
@@ -27,12 +27,8 @@ export async function GET(
     const wc = (comp.type && (comp.type.text || comp.type.abbreviation)) || "";
     const isMain = idx === comps.length - 1;
 
-    const [A, B, oddsRaw] = await Promise.all([
-      getProfile(id1),
-      getProfile(id2),
-      getOddsRaw(evId, compId).catch(() => null),
-    ]);
-    const market = oddsRaw ? parseMarket(oddsRaw, id1, id2) : null;
+    const [A, B] = await Promise.all([getProfile(id1), getProfile(id2)]);
+    const market = await resolveMarket(evId, compId, id1, id2, A.bio.name, B.bio.name);
     const prediction = predict(A, B, market, rds);
     const [tierTxt, tierCls] = tierOf(prediction.favP, prediction.anchored);
     const leg = buildLeg(

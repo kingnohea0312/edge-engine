@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Metadata } from "next";
-import { getEventById, getOddsRaw, getResult, methodText } from "@/lib/data/espn";
+import { getEventById, getResult, methodText } from "@/lib/data/espn";
 import { getProfile } from "@/lib/data/profile";
-import { parseMarket, fmtMl } from "@/lib/engine/market";
+import { resolveMarket } from "@/lib/data/market";
+import { fmtMl } from "@/lib/engine/market";
 import { predict, tierOf } from "@/lib/engine/predict";
 import { pct } from "@/lib/format";
 import MatchupView, { type MatchupData, type DriverSeg } from "@/components/MatchupView";
@@ -20,12 +21,8 @@ async function load(evId: string, compId: string) {
   const rds = (comp.format && comp.format.regulation && comp.format.regulation.periods) || 3;
   const st = comp.status || {};
   const fin = !!(st.type && st.type.completed);
-  const [A, B, oddsRaw] = await Promise.all([
-    getProfile(id1),
-    getProfile(id2),
-    getOddsRaw(evId, compId).catch(() => null),
-  ]);
-  const market = oddsRaw ? parseMarket(oddsRaw, id1, id2) : null;
+  const [A, B] = await Promise.all([getProfile(id1), getProfile(id2)]);
+  const market = await resolveMarket(evId, compId, id1, id2, A.bio.name, B.bio.name);
   const P = predict(A, B, market, rds);
   let result: any = st;
   if (fin && !st.result) {
