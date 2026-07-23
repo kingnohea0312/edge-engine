@@ -95,6 +95,12 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
   .mobile-menu a { display: block; padding: 12px 4px; border-bottom: 1px solid var(--line); font-weight: 600; color: var(--ink); }
 }
 
+/* ---------- page header ---------- */
+.page-h { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin-bottom: 2px; }
+.page-h h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(30px, 5vw, 44px); letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
+.page-h .ev { font-size: 14px; color: var(--muted); font-weight: 600; }
+.page-h .cap { font-size: 12px; color: var(--faint); }
+
 /* ---------- surfaces ---------- */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .pill { display: inline-block; font-family: var(--font-display), sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; padding: 3px 9px 2px; border-radius: 5px; text-transform: uppercase; flex: none; }
@@ -155,6 +161,7 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .ev-row:hover { background: var(--surface-2); }
 .ev-row .date { flex: none; width: 56px; text-align: center; border-right: 1px solid var(--line); padding-right: 16px; }
 .ev-row .date .m { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--red-soft); }
+.ev-row.final .date .m { color: var(--faint); }
 .ev-row .date .d { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 28px; line-height: 1; }
 .ev-row .info { flex: 1; min-width: 0; }
 .ev-row .info .t { font-weight: 600; font-size: 15px; line-height: 1.3; }
