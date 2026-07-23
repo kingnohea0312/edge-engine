@@ -9,6 +9,13 @@ interface Division {
   fighters: string[];
 }
 
+const Belt = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 4h10v5.5a5 5 0 0 1-10 0Z" />
+    <path d="M12 14.5V18M8.5 21h7" />
+  </svg>
+);
+
 export default function RankingsClient() {
   const router = useRouter();
   const [divs, setDivs] = useState<Division[]>([]);
@@ -46,11 +53,7 @@ export default function RankingsClient() {
         const r = await fetch("/api/search?q=" + encodeURIComponent(name));
         const d = await r.json();
         const hit = (d.results || [])[0];
-        if (hit)
-          setImgs((m) => ({
-            ...m,
-            [name]: { id: hit.id, img: hit.image || `https://a.espncdn.com/i/headshots/mma/players/full/${hit.id}.png` },
-          }));
+        if (hit) setImgs((m) => ({ ...m, [name]: { id: hit.id, img: hit.image || `https://a.espncdn.com/i/headshots/mma/players/full/${hit.id}.png` } }));
       } catch {}
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,10 +61,7 @@ export default function RankingsClient() {
 
   const open = async (name: string) => {
     const hit = imgs[name];
-    if (hit) {
-      router.push("/fighter/" + hit.id);
-      return;
-    }
+    if (hit) return router.push("/fighter/" + hit.id);
     try {
       const r = await fetch("/api/search?q=" + encodeURIComponent(name));
       const d = await r.json();
@@ -71,37 +71,59 @@ export default function RankingsClient() {
   };
 
   if (err) return <div className="card err">Rankings unavailable right now.</div>;
-  if (!division) return <div className="skeleton" style={{ height: 480 }} />;
-
-  const Row = ({ name, label, champ }: { name: string; label: string; champ?: boolean }) => (
-    <button className={`rankrow ${champ ? "champ" : ""}`} onClick={() => open(name)}>
-      <span className={`no ${champ ? "champ" : ""}`}>{champ ? "C" : label}</span>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={imgs[name]?.img || SILHOUETTE} alt="" loading="lazy" decoding="async" />
-      <span className="rn">{name}</span>
-      <span style={{ color: "var(--faint)" }}>›</span>
-    </button>
-  );
 
   return (
-    <>
-      <div className="divtabs">
-        {divs.map((d, i) => (
-          <button key={d.categoryName} className={i === cur ? "on" : ""} onClick={() => setCur(i)}>
-            {d.categoryName}
-          </button>
-        ))}
+    <div className="rk">
+      <div className="page-h">
+        <h1>Rankings</h1>
+        {asOf && <span className="cap">{live ? "Live from ufc.com" : `Updated ${asOf}`}</span>}
       </div>
-      <div className="card">
-        {division.champion && <Row name={division.champion.championName} label="C" champ />}
-        {division.fighters.map((f, i) => (
-          <Row key={f + i} name={f} label={String(i + 1)} />
-        ))}
-      </div>
-      <p className="muted" style={{ textAlign: "center", marginTop: 14 }}>
-        {live ? "Official UFC rankings · live from ufc.com" : `Official UFC rankings (snapshot, updated ${asOf})`} · tap a
-        fighter for stats & history.
-      </p>
-    </>
+
+      {!division ? (
+        <div className="skeleton" style={{ height: 480, marginTop: 16 }} />
+      ) : (
+        <>
+          <div className="divs" role="tablist">
+            {divs.map((d, i) => (
+              <button key={d.categoryName} className={`d${i === cur ? " on" : ""}`} onClick={() => setCur(i)}>
+                {d.categoryName}
+              </button>
+            ))}
+          </div>
+
+          {division.champion && (
+            <button className="champ" onClick={() => open(division.champion!.championName)}>
+              <span className="av">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imgs[division.champion.championName]?.img || SILHOUETTE} alt="" loading="lazy" decoding="async" />
+              </span>
+              <span className="who">
+                <span className="belt"><Belt /> Champion · {division.categoryName}</span>
+                <span className="nm" style={{ display: "block" }}>{division.champion.championName}</span>
+              </span>
+              <span className="cbadge">C</span>
+            </button>
+          )}
+
+          <div className="ranks">
+            {division.fighters.map((f, i) => (
+              <button key={f + i} className="r" onClick={() => open(f)}>
+                <span className="no">{i + 1}</span>
+                <span className="av">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imgs[f]?.img || SILHOUETTE} alt="" loading="lazy" decoding="async" />
+                </span>
+                <span className="nm">{f}</span>
+                <span className="chev">›</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="footcap">
+            {live ? "Official UFC rankings · live from ufc.com" : `Official UFC rankings (snapshot, updated ${asOf})`} · tap a fighter for stats &amp; history.
+          </div>
+        </>
+      )}
+    </div>
   );
 }

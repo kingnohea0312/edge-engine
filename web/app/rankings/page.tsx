@@ -10,10 +10,6 @@ export default function RankingsPage() {
   return (
     <main>
       <div className="wrap wrap-narrow">
-        <div className="section-head" style={{ marginTop: 4 }}>
-          <h2>Rankings</h2>
-          <span className="rule" />
-        </div>
         <RankingsClient />
       </div>
     </main>

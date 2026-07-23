@@ -276,6 +276,35 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .rankrow.champ img { border-color: #5a4a22; }
 .rankrow .rn { font-weight: 700; font-size: 14px; flex: 1; }
 
+/* ---------- rankings (redesign) ---------- */
+.rk .page-h { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+.rk .page-h h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(30px, 5vw, 44px); letter-spacing: 0.04em; text-transform: uppercase; }
+.rk .page-h .cap { font-size: 12px; color: var(--faint); }
+.rk .divs { display: flex; gap: 8px; overflow-x: auto; padding: 16px 2px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); }
+.rk .divs::-webkit-scrollbar { display: none; }
+.rk .divs .d { flex: none; font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 9px 15px; white-space: nowrap; transition: all 0.16s; cursor: pointer; }
+.rk .divs .d:hover { color: var(--ink); border-color: var(--line-2); }
+.rk .divs .d.on { background: var(--red); border-color: var(--red); color: #fff; }
+.rk .champ { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; margin-top: 18px; border: 1px solid rgba(216,180,90,0.32); border-radius: 16px; overflow: hidden; padding: 20px 22px; background: linear-gradient(120deg, rgba(216,180,90,0.09), transparent 55%), var(--surface); width: 100%; text-align: left; cursor: pointer; }
+.rk .champ .av { width: 66px; height: 66px; flex: none; border-radius: 50%; overflow: hidden; border: 2px solid rgba(216,180,90,0.5); background: linear-gradient(180deg, #211519, #141013); display: flex; align-items: flex-end; justify-content: center; }
+.rk .champ .av img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.rk .champ .who { min-width: 0; }
+.rk .champ .who .belt { font-family: var(--font-display), sans-serif; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); display: flex; align-items: center; gap: 7px; }
+.rk .champ .who .belt svg { width: 15px; height: 15px; }
+.rk .champ .who .nm { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(26px, 4vw, 38px); line-height: 1; text-transform: uppercase; margin-top: 5px; }
+.rk .champ .cbadge { font-family: var(--font-display), sans-serif; font-weight: 800; font-size: 34px; color: var(--gold); line-height: 1; }
+@media (max-width: 520px) { .rk .champ { grid-template-columns: auto 1fr; } .rk .champ .cbadge { display: none; } }
+.rk .ranks { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); margin-top: 14px; }
+.rk .r { display: grid; grid-template-columns: 34px 46px 1fr auto; align-items: center; gap: 14px; padding: 11px 18px; border-bottom: 1px solid var(--line); transition: background 0.14s; width: 100%; text-align: left; cursor: pointer; }
+.rk .r:last-child { border-bottom: none; }
+.rk .r:hover { background: var(--surface-2); }
+.rk .r .no { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 18px; color: var(--faint); text-align: center; font-variant-numeric: tabular-nums; }
+.rk .r .av { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; border: 1px solid var(--line); background: linear-gradient(180deg, #211519, #141013); display: flex; align-items: flex-end; justify-content: center; }
+.rk .r .av img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.rk .r .nm { font-family: var(--font-display), sans-serif; font-weight: 600; font-size: 19px; text-transform: uppercase; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk .r .chev { color: var(--faint); }
+.rk .footcap { margin-top: 16px; font-size: 11.5px; color: var(--faint); text-align: center; }
+
 /* ---------- fighter profile ---------- */
 .fp { display: grid; grid-template-columns: 1fr; gap: 18px; }
 @media (min-width: 900px) { .fp { grid-template-columns: 360px 1fr; align-items: start; } }
