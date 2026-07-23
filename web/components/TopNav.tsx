@@ -69,72 +69,73 @@ export default function TopNav() {
   return (
     <>
       <nav className="nav">
-        <Link href="/" className="logo" aria-label="Edge Engine home">
-          EDGE<b>ENGINE</b>
-        </Link>
-        <div className="links">
-          {LINKS.map(([href, label]) => (
-            <Link key={href} href={href} className={isOn(href) ? "on" : ""}>
-              {label}
-            </Link>
-          ))}
-          <div className="nav-dd" ref={ddRef}>
-            <button
-              className={predOn ? "on" : ""}
-              aria-haspopup="menu"
-              aria-expanded={dd}
-              onClick={() => setDd((v) => !v)}
-            >
-              Predictions <span className="car">▾</span>
-            </button>
-            {dd && (
-              <div className="nav-dd-menu" role="menu">
-                {PRED_SUB.map(([href, label, desc]) => (
-                  <Link key={href} href={href} role="menuitem" onClick={() => setDd(false)}>
-                    {label}
-                    <span className="d">{desc}</span>
+        <div className="nav-in">
+          <Link href="/" className="logo" aria-label="Edge Engine home">
+            EDGE<b>ENGINE</b>
+          </Link>
+          <div className="links">
+            {LINKS.map(([href, label]) => (
+              <Link key={href} href={href} className={isOn(href) ? "on" : ""}>
+                {label}
+              </Link>
+            ))}
+            <div className="nav-dd" ref={ddRef}>
+              <button
+                className={predOn ? "on" : ""}
+                aria-haspopup="menu"
+                aria-expanded={dd}
+                onClick={() => setDd((v) => !v)}
+              >
+                Predictions <span className="car">▾</span>
+              </button>
+              {dd && (
+                <div className="nav-dd-menu" role="menu">
+                  {PRED_SUB.map(([href, label, desc]) => (
+                    <Link key={href} href={href} role="menuitem" onClick={() => setDd(false)}>
+                      {label}
+                      <span className="d">{desc}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="nav-search" ref={box}>
+            <input
+              type="search"
+              aria-label="Search UFC fighters by name"
+              placeholder="Search fighters…"
+              autoComplete="off"
+              spellCheck={false}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            {hits.length > 0 && (
+              <div className="results" role="listbox" aria-live="polite">
+                {hits.map((h) => (
+                  <Link
+                    key={h.id}
+                    href={`/fighter/${h.id}`}
+                    onClick={() => {
+                      setQ("");
+                      setHits([]);
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={h.image || `https://a.espncdn.com/i/headshots/mma/players/full/${h.id}.png`} alt="" />
+                    <div>
+                      <div>{h.name}</div>
+                      <div style={{ color: "var(--faint)", fontSize: 11 }}>{h.subtitle}</div>
+                    </div>
                   </Link>
                 ))}
               </div>
             )}
           </div>
+          <button className="burger" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
+            ≡
+          </button>
         </div>
-        <span className="spacer" />
-        <div className="nav-search" ref={box}>
-          <input
-            type="search"
-            aria-label="Search UFC fighters by name"
-            placeholder="Search fighters…"
-            autoComplete="off"
-            spellCheck={false}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          {hits.length > 0 && (
-            <div className="results" role="listbox" aria-live="polite">
-              {hits.map((h) => (
-                <Link
-                  key={h.id}
-                  href={`/fighter/${h.id}`}
-                  onClick={() => {
-                    setQ("");
-                    setHits([]);
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={h.image || `https://a.espncdn.com/i/headshots/mma/players/full/${h.id}.png`} alt="" />
-                  <div>
-                    <div>{h.name}</div>
-                    <div style={{ color: "var(--faint)", fontSize: 11 }}>{h.subtitle}</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-        <button className="burger" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
-          ≡
-        </button>
       </nav>
       <div className={"mobile-menu" + (menu ? " open" : "")}>
         {LINKS.map(([href, label]) => (

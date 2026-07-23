@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Bebas_Neue } from "next/font/google";
+import { Archivo, Saira_Condensed } from "next/font/google";
 import "./globals.css";
 import TopNav from "@/components/TopNav";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-display", display: "swap" });
+const archivo = Archivo({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
+const saira = Saira_Condensed({ weight: ["500", "600", "700", "800"], subsets: ["latin"], variable: "--font-display", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Edge Engine — Calibrated UFC Forecasting", template: "%s · Edge Engine" },
@@ -31,16 +31,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${bebas.variable}`}>
+    <html lang="en" className={`${archivo.variable} ${saira.variable}`}>
       <body>
         <TopNav />
         {children}
         <footer className="site">
-          <b>Probabilities, not locks — a single punch can end any fight.</b>
-          <br />
-          If you bet, bet only what you can afford to lose. 21+. Not affiliated with the UFC or ESPN.
-          <br />
-          Edge Engine · calibrated UFC forecasting.
+          Probabilities, not locks — a single punch can end any fight. If you bet, bet only what you
+          can afford to lose. <b>21+.</b> Not affiliated with the UFC or ESPN.
         </footer>
       </body>
     </html>
