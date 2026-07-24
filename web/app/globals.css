@@ -12,7 +12,9 @@
   --line-2: #3a3033;
   --ink: #f4f1f2;
   --muted: #a49aa0;
-  --faint: #6d646a;
+  /* --faint lifted from #6d646a (3.2:1) to clear WCAG AA 4.5:1 on every
+     surface (incl. --surface-2) while staying clearly tertiary below --muted. */
+  --faint: #8d848b;
   --oxblood: #b11226;
   --red: #e5142a;
   --red-soft: #ff5061;
@@ -51,6 +53,12 @@ button, a, input { touch-action: manipulation; }
 /* Buttons must never fall back to the UA's grey `buttonface`; anything that
    needs a fill sets its own (higher specificity wins). */
 button { background: none; border: none; font-family: inherit; color: inherit; cursor: pointer; }
+/* Pin <b>/<strong> to a loaded weight. The UA default `bolder` resolves to 900
+   inside 700 display headings (logo, wordmark), which Saira doesn't ship —
+   the browser then fakes it. 700 is loaded for both families. */
+b, strong { font-weight: 700; }
+/* h1–h3 balance for even line lengths (skill typography rule). */
+h1, h2, h3 { text-wrap: balance; }
 
 /* ---------- layout shell ---------- */
 .wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
@@ -116,7 +124,7 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .hero { position: relative; display: grid; grid-template-columns: 1fr; gap: 26px; align-items: center; padding: 30px 0 38px; }
 .hero-copy { position: relative; }
 .hero .kicker { display: block; margin-bottom: 16px; }
-.hero h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(52px, 10vw, 104px); line-height: 0.86; letter-spacing: 0.005em; text-transform: uppercase; }
+.hero h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(52px, 10vw, 96px); line-height: 0.86; letter-spacing: 0.005em; text-transform: uppercase; }
 .hero h1 b { color: var(--red); }
 .hero p, .hero .lede { position: relative; max-width: 52ch; margin-top: 20px; color: var(--muted); font-size: 15.5px; line-height: 1.7; text-wrap: pretty; }
 .hero p b, .hero .lede b { color: var(--ink); }
@@ -656,7 +664,7 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 /* Open forecast hero — no card/box, sits on the page background. */
 .pb .fc-hero { position: relative; }
 .pb .fc-hero .in { padding: 26px 0 30px; }
-.pb .fc-hero .kick { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display), sans-serif; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.pb .fc-hero .kick { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display), sans-serif; font-weight: 600; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 .pb .fc-hero .kick .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); box-shadow: 0 0 8px rgba(53,194,129,0.7); animation: pulseOp 2.4s ease-in-out infinite; }
 .pb .fc-hero h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(30px, 5.4vw, 50px); line-height: 0.94; text-transform: uppercase; margin: 12px 0 8px; }
 .pb .fc-hero .meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }

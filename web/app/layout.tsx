@@ -3,8 +3,10 @@ import { Archivo, Saira_Condensed } from "next/font/google";
 import "./globals.css";
 import TopNav from "@/components/TopNav";
 
-const archivo = Archivo({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
-const saira = Saira_Condensed({ weight: ["500", "600", "700", "800"], subsets: ["latin"], variable: "--font-display", display: "swap" });
+// Only the weights actually used in globals.css are requested — dropping the
+// unused Archivo 500 and Saira 500 removes two font files from the payload.
+const archivo = Archivo({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-sans", display: "swap" });
+const saira = Saira_Condensed({ weight: ["600", "700", "800"], subsets: ["latin"], variable: "--font-display", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Edge Engine — Calibrated UFC Forecasting", template: "%s · Edge Engine" },
