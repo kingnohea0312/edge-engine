@@ -48,6 +48,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
   outline: 2px solid var(--red); outline-offset: 2px; border-radius: 6px;
 }
 button, a, input { touch-action: manipulation; }
+/* Buttons must never fall back to the UA's grey `buttonface`; anything that
+   needs a fill sets its own (higher specificity wins). */
+button { background: none; border: none; font-family: inherit; color: inherit; cursor: pointer; }
 
 /* ---------- layout shell ---------- */
 .wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
@@ -364,6 +367,19 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .od .mv.up { color: var(--up); }
 .od .mv.dn { color: var(--down); }
 .od .pending { font-family: var(--font-display), sans-serif; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); border: 1px dashed var(--line-2); border-radius: 8px; padding: 8px 14px; display: inline-block; }
+/* the engine's read, shown under the moneylines */
+.od .pick-note { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 6px; margin-top: 9px; font-size: 12px; color: var(--muted); }
+.od .pick-note .lbl { font-family: var(--font-display), sans-serif; font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.od .pick-note b { font-family: var(--font-display), sans-serif; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.od .pick-note b.strong { color: var(--up); }
+.od .pick-note b.solid { color: var(--gold); }
+.od .pick-note b.lean { color: var(--red-soft); }
+.od .pick-note b.flip { color: var(--muted); }
+.od .pick-note .p { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+.od .pick-note .sep { color: var(--line-2); }
+.od .pick-note .m { color: var(--muted); }
+.od .pick-note.loading { color: var(--faint); font-style: italic; }
+@media (max-width: 700px) { .od .pick-note { justify-content: flex-start; } }
 @media (max-width: 700px) {
   .od table.odds, .od table.odds tbody, .od table.odds tr, .od table.odds td { display: block; width: 100%; }
   .od table.odds thead { display: none; }

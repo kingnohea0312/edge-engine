@@ -1,10 +1,10 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getCalendar, getEventById } from "@/lib/data/espn";
 import { shapeEvent } from "@/lib/data/shape";
 import { resolveMarket } from "@/lib/data/market";
 import { amToProb, fmtMl } from "@/lib/engine/market";
 import type { Market } from "@/lib/engine/types";
+import OddsTable, { type ORow } from "@/components/OddsTable";
 import { fmtDateShort } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -13,19 +13,12 @@ export const metadata: Metadata = {
   description: "Real-time Las Vegas moneylines and line movement for the next UFC card.",
 };
 
-function move(m: Market | null | undefined) {
+function move(m: Market | null | undefined): "up" | "down" | null {
   if (!m || m.openA == null) return null;
   const delta = amToProb(m.mlA) - amToProb(m.openA);
   if (Math.abs(delta) <= 0.02) return null;
-  return delta > 0 ? "up" : ("down" as const); // A shortened / drifted
+  return delta > 0 ? "up" : "down"; // A shortened / drifted
 }
-
-const ArrowUp = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 15l6-6 6 6" /></svg>
-);
-const ArrowDn = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-);
 
 export default async function OddsPage() {
   let evId: string | null = null;
@@ -62,6 +55,23 @@ export default async function OddsPage() {
   const books = [...new Set([...markets.values()].filter(Boolean).map((m) => m!.provider))];
   const bookLabel = books.length === 0 ? "No book connected" : books.length === 1 ? books[0] : `${books[0]} +${books.length - 1}`;
 
+  const rows: ORow[] = fights.map((f) => {
+    const m = markets.get(f.compId);
+    return {
+      compId: f.compId,
+      aLast: f.f1.last,
+      aRec: f.f1.rec,
+      bLast: f.f2.last,
+      bRec: f.f2.rec,
+      wc: f.type,
+      rounds: f.rounds,
+      mlA: m ? fmtMl(m.mlA) : null,
+      mlB: m ? fmtMl(m.mlB) : null,
+      favA: !!m && m.mlA < m.mlB,
+      mv: move(m),
+    };
+  });
+
   return (
     <main>
       <div className="wrap wrap-narrow od">
@@ -82,51 +92,7 @@ export default async function OddsPage() {
           <span className="l">Prices are American odds.</span>
         </div>
 
-        <div className="oddscard">
-          <table className="odds">
-            <thead>
-              <tr>
-                <th>Bout</th>
-                <th>Class</th>
-                <th className="r">Moneyline · Movement</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fights.map((f) => {
-                const m = markets.get(f.compId);
-                const favA = !!m && m.mlA < m.mlB;
-                const mv = move(m);
-                return (
-                  <tr key={f.compId}>
-                    <td>
-                      <div className="bout">
-                        <Link href={`/event/${evId}/${f.compId}`} className="f">
-                          {f.f1.last}{f.f1.rec && <span className="rec">{f.f1.rec}</span>}
-                        </Link>
-                        <div className="vs">vs</div>
-                        <Link href={`/event/${evId}/${f.compId}`} className="f">
-                          {f.f2.last}{f.f2.rec && <span className="rec">{f.f2.rec}</span>}
-                        </Link>
-                      </div>
-                    </td>
-                    <td className="wc">{f.type}<span className="rd">{f.rounds} Rounds</span></td>
-                    <td className="ml-cell">
-                      {m ? (
-                        <div className="ml-line">
-                          <span className={`ml${favA ? " fav" : ""}`}><span className="who">{f.f1.last}</span><span className="v">{fmtMl(m.mlA)}</span></span>
-                          {mv && <span className={`mv ${mv === "up" ? "up" : "dn"}`}>{mv === "up" ? <ArrowUp /> : <ArrowDn />}</span>}
-                          <span className={`ml${!favA ? " fav" : ""}`}><span className="who">{f.f2.last}</span><span className="v">{fmtMl(m.mlB)}</span></span>
-                        </div>
-                      ) : (
-                        <div className="ml-line"><span className="pending">Pending — line not posted</span></div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <OddsTable evId={evId} rows={rows} />
       </div>
     </main>
   );
