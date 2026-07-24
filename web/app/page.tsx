@@ -46,7 +46,7 @@ const IC = {
 const FEATURES: [string, string, React.ReactNode, string, boolean][] = [
   ["/events", "Events", IC.cal, "Full fight cards, main to early prelims, with live schedules and results.", false],
   ["/rankings", "Rankings", IC.trophy, "Official divisional rankings and pound-for-pound, live from ufc.com.", true],
-  ["/odds", "Live Odds", IC.trend, "ESPN BET moneylines with favorite highlights and line-movement arrows.", false],
+  ["/odds", "Live Odds", IC.trend, "Live sportsbook moneylines across the card, with the favorite highlighted.", false],
   ["/predict", "Predictions", IC.target, "The engine's calibrated read: pick, market anchor, method matrix, round call.", false],
 ];
 

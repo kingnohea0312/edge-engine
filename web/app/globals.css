@@ -109,8 +109,8 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .pill.done { background: rgba(53, 194, 129, 0.1); color: var(--up); border: 1px solid rgba(53, 194, 129, 0.25); }
 
 /* ---------- hero ---------- */
-.hero { position: relative; display: grid; grid-template-columns: 1fr; gap: 26px; align-items: center; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; padding: 34px 26px; background: linear-gradient(150deg, #1d1015 0%, #161215 52%, #110f11 100%); }
-.hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(60% 80% at 88% -10%, rgba(177, 18, 38, 0.16), transparent 62%); }
+/* Open hero — sits directly on the page background, no card/box. */
+.hero { position: relative; display: grid; grid-template-columns: 1fr; gap: 26px; align-items: center; padding: 30px 0 38px; }
 .hero-copy { position: relative; }
 .hero .kicker { display: block; margin-bottom: 16px; }
 .hero h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(52px, 10vw, 104px); line-height: 0.86; letter-spacing: 0.005em; text-transform: uppercase; }
@@ -119,12 +119,13 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .hero p b, .hero .lede b { color: var(--ink); }
 .hero .cta, .cta { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
 .btn { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-display), sans-serif; padding: 14px 22px; border-radius: 11px; font-weight: 700; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; cursor: pointer; border: 1px solid transparent; transition: transform 0.12s, background 0.16s, border-color 0.16s; }
+.btn svg { width: 17px; height: 17px; flex: none; }
 .btn:active { transform: scale(0.97); }
 .btn.primary { background: var(--red); color: #fff; }
 .btn.primary:hover { background: var(--red-soft); color: #fff; }
 .btn.ghost { background: transparent; border-color: var(--line-2); color: var(--ink); }
 .btn.ghost:hover { color: var(--ink); border-color: var(--muted); background: rgba(255, 255, 255, 0.03); }
-@media (min-width: 900px) { .hero { grid-template-columns: 1.5fr 0.9fr; padding: 48px 44px; } }
+@media (min-width: 900px) { .hero { grid-template-columns: 1.5fr 0.9fr; padding: 44px 0 52px; gap: 44px; } }
 
 /* ---------- next-event card (home hero) ---------- */
 .nextcard { position: relative; background: rgba(0, 0, 0, 0.32); border: 1px solid var(--line-2); border-radius: 16px; padding: 20px; backdrop-filter: blur(2px); }
@@ -138,7 +139,8 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .nextcard .cd .n { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 24px; line-height: 1; }
 .nextcard .cd .l { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin-top: 5px; }
 .nextcard .go { display: flex; align-items: center; gap: 7px; margin-top: 16px; font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); }
-.nextcard .go span { transition: transform 0.16s; }
+.nextcard .go span { display: inline-flex; transition: transform 0.16s; }
+.nextcard .go svg { width: 15px; height: 15px; flex: none; }
 .nextcard:hover .go span { transform: translateX(4px); }
 
 /* ---------- feature grid ---------- */
@@ -153,7 +155,17 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 .feature h3 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 0.03em; text-transform: uppercase; }
 .feature p { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 8px; flex: 1; text-wrap: pretty; }
 .feature .go { margin-top: 16px; display: flex; align-items: center; gap: 7px; font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); transition: color 0.16s; }
+.feature .go svg { width: 13px; height: 13px; flex: none; }
 .feature:hover .go { color: var(--red); }
+/* Mobile: compact horizontal rows so the grid doesn't eat the screen. */
+@media (max-width: 639px) {
+  .feature { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 2px 14px; padding: 15px 16px; }
+  .feature .ic { grid-row: 1 / 3; width: 38px; height: 38px; margin-bottom: 0; }
+  .feature .ic svg { width: 19px; height: 19px; }
+  .feature h3 { grid-column: 2; font-size: 17px; }
+  .feature p { grid-column: 2; margin-top: 2px; font-size: 12.5px; line-height: 1.45; }
+  .feature .go { grid-column: 3; grid-row: 1 / 3; margin-top: 0; font-size: 0; gap: 0; }
+}
 
 /* ---------- event / date rows (home upcoming, events, predict) ---------- */
 .ev-row { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--line); transition: background 0.14s; }
@@ -587,8 +599,9 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
 /* ---------- predictions board ---------- */
 @keyframes pulseOp { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes rise { to { opacity: 1; transform: none; } }
-.pb .fc-hero { position: relative; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); background-image: linear-gradient(105deg, #221319 0%, #171216 46%, #141013 100%); }
-.pb .fc-hero .in { padding: 24px 22px; }
+/* Open forecast hero — no card/box, sits on the page background. */
+.pb .fc-hero { position: relative; }
+.pb .fc-hero .in { padding: 26px 0 30px; }
 .pb .fc-hero .kick { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display), sans-serif; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 .pb .fc-hero .kick .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); box-shadow: 0 0 8px rgba(53,194,129,0.7); animation: pulseOp 2.4s ease-in-out infinite; }
 .pb .fc-hero h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(30px, 5.4vw, 50px); line-height: 0.94; text-transform: uppercase; margin: 12px 0 8px; }
