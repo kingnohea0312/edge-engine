@@ -393,6 +393,44 @@ main { padding: 24px 0 60px; min-height: calc(100vh - var(--nav-h)); }
   .od .ml-cell { text-align: left; }
 }
 
+/* ---------- parlays ---------- */
+.pl .lede { color: var(--muted); font-size: 14px; margin-top: 10px; max-width: 64ch; line-height: 1.6; }
+.pl .lede b { color: var(--ink); font-weight: 600; }
+.pl .warn { margin-top: 20px; padding: 16px 18px; border: 1px dashed rgba(216,180,90,0.4); border-radius: 12px; background: rgba(216,180,90,0.05); font-size: 12.5px; color: var(--muted); line-height: 1.65; display: flex; gap: 12px; align-items: flex-start; }
+.pl .warn svg { width: 19px; height: 19px; flex: none; color: var(--gold); margin-top: 1px; }
+.pl .warn b { color: var(--gold); font-weight: 700; font-family: var(--font-display), sans-serif; letter-spacing: 0.06em; text-transform: uppercase; }
+.pl .howto { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-top: 14px; }
+@media (min-width: 720px) { .pl .howto { grid-template-columns: repeat(3, 1fr); } }
+.pl .howto .h { background: var(--surface); padding: 16px 18px; }
+.pl .howto .h .k { font-family: var(--font-display), sans-serif; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.pl .howto .h .v { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 7px; }
+.pl .parlay { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden; margin-bottom: 16px; }
+.pl .p-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.pl .p-head h3 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 21px; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1; }
+.pl .p-head .sug { font-family: var(--font-display), sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 9px 2px; border-radius: 5px; background: rgba(216,180,90,0.12); color: var(--gold); border: 1px solid rgba(216,180,90,0.3); }
+.pl .p-head .cp { margin-left: auto; text-align: right; }
+.pl .p-head .cp .n { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; }
+.pl .p-head .cp .l { font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
+.pl .leg { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.pl .leg:last-of-type { border-bottom: none; }
+.pl .leg .tag { font-family: var(--font-display), sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px 2px; border-radius: 5px; border: 1px solid var(--line-2); color: var(--faint); white-space: nowrap; }
+.pl .leg .tag.winner { color: var(--red-soft); border-color: rgba(229,20,42,0.3); background: rgba(229,20,42,0.08); }
+.pl .leg .tag.method { color: var(--ink); background: var(--surface-2); }
+.pl .leg .tag.round { color: var(--gold); border-color: rgba(216,180,90,0.3); }
+.pl .leg .sel { font-family: var(--font-display), sans-serif; font-weight: 600; font-size: 17px; text-transform: uppercase; line-height: 1.1; }
+.pl .leg .rat { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+.pl .leg .lp { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.pl .ladder { padding: 14px 18px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.pl .ladder .k { font-family: var(--font-display), sans-serif; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+.pl .ladder .rows { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pl .ladder .step { border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px; background: var(--surface); }
+.pl .ladder .step .n { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+.pl .ladder .step .l { font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin-top: 2px; }
+.pl .ladder .step.best { border-color: rgba(53,194,129,0.4); background: rgba(53,194,129,0.07); }
+.pl .ladder .step.best .n { color: var(--up); }
+.pl .caveat { padding: 13px 18px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--faint); line-height: 1.6; }
+.pl .empty { padding: 30px 18px; text-align: center; color: var(--muted); font-size: 13.5px; line-height: 1.7; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); margin-top: 18px; }
+
 /* ---------- rankings (redesign) ---------- */
 .rk .page-h { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
 .rk .page-h h1 { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: clamp(30px, 5vw, 44px); letter-spacing: 0.04em; text-transform: uppercase; }

@@ -7,7 +7,10 @@ const LINKS: [string, string][] = [
   ["/", "Home"],
   ["/events", "Events"],
   ["/rankings", "Rankings"],
-  ["/odds", "Odds"],
+];
+const ODDS_SUB: [string, string, string][] = [
+  ["/odds", "Live odds", "Sportsbook moneylines across the card"],
+  ["/odds/parlays", "Parlays", "Suggested multi-leg builds — never locks"],
 ];
 const PRED_SUB: [string, string, string][] = [
   ["/predict", "Current events", "Pick a card and run the engine"],
@@ -21,13 +24,13 @@ export default function TopNav() {
   const [menu, setMenu] = useState(false);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
-  const [dd, setDd] = useState(false);
+  const [dd, setDd] = useState<"odds" | "pred" | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const ddRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMenu(false);
-    setDd(false);
+    setDd(null);
   }, [path]);
 
   useEffect(() => {
@@ -50,10 +53,10 @@ export default function TopNav() {
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (box.current && !box.current.contains(e.target as Node)) setHits([]);
-      if (ddRef.current && !ddRef.current.contains(e.target as Node)) setDd(false);
+      if (ddRef.current && !ddRef.current.contains(e.target as Node)) setDd(null);
     };
     const k = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDd(false);
+      if (e.key === "Escape") setDd(null);
     };
     document.addEventListener("mousedown", h);
     document.addEventListener("keydown", k);
@@ -65,6 +68,25 @@ export default function TopNav() {
 
   const isOn = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
   const predOn = path.startsWith("/predict");
+  const oddsOn = path.startsWith("/odds");
+
+  const Dropdown = ({ id, label, active, items }: { id: "odds" | "pred"; label: string; active: boolean; items: [string, string, string][] }) => (
+    <div className="nav-dd">
+      <button className={active ? "on" : ""} aria-haspopup="menu" aria-expanded={dd === id} onClick={() => setDd((v) => (v === id ? null : id))}>
+        {label} <span className="car">▾</span>
+      </button>
+      {dd === id && (
+        <div className="nav-dd-menu" role="menu">
+          {items.map(([href, t, desc]) => (
+            <Link key={href} href={href} role="menuitem" onClick={() => setDd(null)}>
+              {t}
+              <span className="d">{desc}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -73,32 +95,14 @@ export default function TopNav() {
           <Link href="/" className="logo" aria-label="Edge Engine home">
             EDGE<b>ENGINE</b>
           </Link>
-          <div className="links">
+          <div className="links" ref={ddRef}>
             {LINKS.map(([href, label]) => (
               <Link key={href} href={href} className={isOn(href) ? "on" : ""}>
                 {label}
               </Link>
             ))}
-            <div className="nav-dd" ref={ddRef}>
-              <button
-                className={predOn ? "on" : ""}
-                aria-haspopup="menu"
-                aria-expanded={dd}
-                onClick={() => setDd((v) => !v)}
-              >
-                Predictions <span className="car">▾</span>
-              </button>
-              {dd && (
-                <div className="nav-dd-menu" role="menu">
-                  {PRED_SUB.map(([href, label, desc]) => (
-                    <Link key={href} href={href} role="menuitem" onClick={() => setDd(false)}>
-                      {label}
-                      <span className="d">{desc}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Dropdown id="odds" label="Odds" active={oddsOn} items={ODDS_SUB} />
+            <Dropdown id="pred" label="Predictions" active={predOn} items={PRED_SUB} />
           </div>
           <div className="nav-search" ref={box}>
             <input
@@ -143,6 +147,8 @@ export default function TopNav() {
             {label}
           </Link>
         ))}
+        <Link href="/odds">Odds · Live odds</Link>
+        <Link href="/odds/parlays">Odds · Parlays</Link>
         <Link href="/predict">Predictions · Current events</Link>
         <Link href="/predict/dev">Predictions · Dev cards</Link>
       </div>
